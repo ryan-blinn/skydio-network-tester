@@ -24,16 +24,94 @@ if not os.path.exists(HISTORY_DIR):
     os.makedirs(HISTORY_DIR)
 
 DEFAULT_TARGETS = {
-  "dns": ["skydio.com","cloud.skydio.com","google.com","8.8.8.8"],
+  "dns": [
+    # Core Skydio domains
+    "skydio.com",
+    "cloud.skydio.com",
+    # S3 buckets for vehicle data, flight data, and updates
+    "skydio-vehicle-data.s3-accelerate.amazonaws.com",
+    "skydio-vehicle-data.s3.amazonaws.com",
+    "skydio-vehicle-data.s3-us-west-2.amazonaws.com",
+    "skydio-flight-data.s3-accelerate.amazonaws.com",
+    "skydio-flight-data.s3.amazonaws.com",
+    "skydio-organization-files.s3-accelerate.amazonaws.com",
+    "skydio-organization-files.s3.amazonaws.com",
+    "skydio-ota-diff-updates.s3-accelerate.amazonaws.com",
+    "skydio-ota-diff-updates.s3.amazonaws.com",
+    "skydio-ota-updates.s3-accelerate.amazonaws.com",
+    "skydio-ota-updates.s3.amazonaws.com",
+    "skydio-controller-ota-updates.s3-accelerate.amazonaws.com",
+    "skydio-controller-ota-updates.s3.amazonaws.com",
+    "skydio-media-thumbnails.s3-accelerate.amazonaws.com",
+    "skydio-media-thumbnails.s3.amazonaws.com",
+    "skydio-media-sync-test-files.s3-accelerate.amazonaws.com",
+    "skydio-media-sync-test-files.s3.amazonaws.com",
+    # u-blox GPS assist services
+    "online-live1.services.u-blox.com",
+    "offline-live1.services.u-blox.com",
+    # DNS servers
+    "8.8.8.8",
+    "google.com"
+  ],
   "tcp": [
+    # Rule 1: Skydio Cloud HTTPS (*.skydio.com:443)
+    {"host":"44.237.178.82","port":443,"label":"Skydio Cloud IP 1"},
+    {"host":"52.39.114.182","port":443,"label":"Skydio Cloud IP 2"},
+    {"host":"35.84.246.249","port":443,"label":"Skydio Cloud IP 3"},
+    {"host":"52.89.241.109","port":443,"label":"Skydio Cloud IP 4"},
+    {"host":"35.84.174.167","port":443,"label":"Skydio Cloud IP 5"},
     {"host":"skydio.com","port":443,"label":"Skydio Main HTTPS"},
-    {"host":"cloud.skydio.com","port":443,"label":"Skydio Cloud HTTPS"}
+    {"host":"cloud.skydio.com","port":443,"label":"Skydio Cloud HTTPS"},
+    # Rule 2: Livestreaming TCP 322
+    {"host":"52.89.241.109","port":322,"label":"Livestream TCP 322 IP 1"},
+    {"host":"35.84.174.167","port":322,"label":"Livestream TCP 322 IP 2"},
+    # Rule 3: Livestreaming TCP 7881
+    {"host":"34.208.18.168","port":7881,"label":"Livestream TCP 7881 IP 1"},
+    {"host":"50.112.181.82","port":7881,"label":"Livestream TCP 7881 IP 2"},
+    {"host":"34.214.163.204","port":7881,"label":"Livestream TCP 7881 IP 3"},
+    {"host":"54.190.113.196","port":7881,"label":"Livestream TCP 7881 IP 4"},
+    {"host":"35.155.8.20","port":7881,"label":"Livestream TCP 7881 IP 5"},
+    {"host":"52.40.22.162","port":7881,"label":"Livestream TCP 7881 IP 6"},
+    # Rule 6: Dock to Cloud TCP 51334
+    {"host":"44.237.178.82","port":51334,"label":"Dock Cloud TCP 51334 IP 1"},
+    {"host":"52.39.114.182","port":51334,"label":"Dock Cloud TCP 51334 IP 2"},
+    {"host":"35.84.246.249","port":51334,"label":"Dock Cloud TCP 51334 IP 3"},
+    # Rule 11: S3 HTTPS endpoints
+    {"host":"skydio-vehicle-data.s3-accelerate.amazonaws.com","port":443,"label":"S3 Vehicle Data Accelerate"},
+    {"host":"skydio-vehicle-data.s3.amazonaws.com","port":443,"label":"S3 Vehicle Data"},
+    {"host":"skydio-flight-data.s3-accelerate.amazonaws.com","port":443,"label":"S3 Flight Data Accelerate"},
+    {"host":"skydio-flight-data.s3.amazonaws.com","port":443,"label":"S3 Flight Data"},
+    {"host":"skydio-organization-files.s3-accelerate.amazonaws.com","port":443,"label":"S3 Org Files Accelerate"},
+    {"host":"skydio-ota-updates.s3-accelerate.amazonaws.com","port":443,"label":"S3 OTA Updates Accelerate"},
+    {"host":"skydio-ota-updates.s3.amazonaws.com","port":443,"label":"S3 OTA Updates"},
+    {"host":"skydio-controller-ota-updates.s3-accelerate.amazonaws.com","port":443,"label":"S3 Controller OTA Accelerate"},
+    {"host":"skydio-media-thumbnails.s3-accelerate.amazonaws.com","port":443,"label":"S3 Media Thumbnails Accelerate"},
+    # Rule 12: u-blox AssistNow
+    {"host":"online-live1.services.u-blox.com","port":443,"label":"u-blox Online AssistNow"},
+    {"host":"offline-live1.services.u-blox.com","port":443,"label":"u-blox Offline AssistNow"}
   ],
   "quic": [
+    # Rule 7: Dock to Livestreaming QUIC/UDP 443
+    {"host":"35.166.132.69","port":443,"label":"Livestream QUIC IP 1"},
+    {"host":"34.214.68.80","port":443,"label":"Livestream QUIC IP 2"},
+    {"host":"100.20.220.165","port":443,"label":"Livestream QUIC IP 3"},
+    {"host":"35.85.110.98","port":443,"label":"Livestream QUIC IP 4"},
+    {"host":"35.164.30.49","port":443,"label":"Livestream QUIC IP 5"},
+    {"host":"52.32.44.190","port":443,"label":"Livestream QUIC IP 6"},
     {"host":"skydio.com","port":443,"label":"Skydio Main QUIC"},
     {"host":"cloud.skydio.com","port":443,"label":"Skydio Cloud QUIC"}
   ],
-  "ping": ["8.8.8.8","1.1.1.1","skydio.com"],
+  "ping": [
+    # Core connectivity tests
+    "8.8.8.8",
+    "1.1.1.1",
+    "skydio.com",
+    "cloud.skydio.com",
+    # Skydio Cloud IPs
+    "44.237.178.82",
+    "52.39.114.182",
+    "35.84.246.249"
+  ],
   "ntp": "time.skydio.com"
 }
 

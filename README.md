@@ -46,29 +46,67 @@ A modern, intuitive dashboard for testing network readiness on Raspberry Pi devi
 
 ## Test Types
 
-- **DNS Resolution**: Tests connectivity to Skydio cloud services and common DNS servers
-- **TCP Connectivity**: Verifies specific ports are accessible (HTTPS, WebRTC)
-- **Ping Tests**: Measures network latency to key servers
-- **NTP Sync**: Checks time synchronization capability
-- **Speed Test**: Measures available bandwidth
+This tool validates **all required network connectivity** for Skydio Dock operations:
+
+- **DNS Resolution**: Tests connectivity to Skydio cloud services, AWS S3 buckets, u-blox GPS services, and DNS servers
+- **TCP Connectivity**: Verifies access to:
+  - Skydio Cloud (port 443)
+  - Livestreaming services (ports 322, 7881, 51334)
+  - AWS S3 storage buckets (port 443)
+  - u-blox AssistNow GPS assistance (port 443)
+- **QUIC Protocol**: Tests HTTP/3 connectivity for livestreaming (UDP port 443)
+- **Ping Tests**: Measures network latency and packet loss to Skydio infrastructure
+- **NTP Sync**: Validates time synchronization with `time.skydio.com`
+- **Speed Test**: Measures available bandwidth (≥20 Mbps recommended)
+
+### Comprehensive Coverage
+
+The tester validates connectivity for **14 network rules** including:
+- ✅ Client workstations to Skydio Cloud
+- ✅ Livestreaming infrastructure (TCP 322, 7881)
+- ✅ Dock to Skydio Cloud (TCP 443, 51334)
+- ✅ QUIC/WebRTC livestreaming (UDP 443)
+- ✅ AWS S3 buckets (vehicle data, flight data, OTA updates, media)
+- ✅ u-blox GPS AssistNow services
+- ✅ DNS resolution (UDP 53)
+- ✅ NTP time synchronization (UDP 123)
+
+**See [NETWORK_REQUIREMENTS.md](NETWORK_REQUIREMENTS.md) for complete details on all tested endpoints.**
 
 ## Configuration
 
-Default test targets are defined in `app.py`:
+The tool tests comprehensive Skydio network requirements by default. Test targets can be customized in `config.json`:
 
-```python
-DEFAULT_TARGETS = {
-  "dns": ["cloud.skydio.com","time.skydio.com","google.com","u-blox.com"],
-  "tcp": [
-    {"host":"cloud.skydio.com","port":443,"label":"Skydio Cloud HTTPS"},
-    {"host":"cloud.skydio.com","port":322,"label":"WebRTC TCP 322"},
-    {"host":"cloud.skydio.com","port":7881,"label":"WebRTC TCP 7881"},
-    {"host":"www.google.com","port":443,"label":"Generic HTTPS"}
-  ],
-  "ping": ["8.8.8.8","1.1.1.1","cloud.skydio.com"],
-  "ntp": "time.skydio.com"
+```json
+{
+  "targets": {
+    "dns": [
+      "skydio.com",
+      "cloud.skydio.com",
+      "skydio-vehicle-data.s3-accelerate.amazonaws.com",
+      "skydio-ota-updates.s3-accelerate.amazonaws.com",
+      "online-live1.services.u-blox.com",
+      "8.8.8.8"
+    ],
+    "tcp": [
+      {"host": "44.237.178.82", "port": 443, "label": "Skydio Cloud IP"},
+      {"host": "skydio.com", "port": 443, "label": "Skydio HTTPS"},
+      {"host": "52.89.241.109", "port": 322, "label": "Livestream TCP 322"},
+      {"host": "34.208.18.168", "port": 7881, "label": "Livestream TCP 7881"},
+      {"host": "44.237.178.82", "port": 51334, "label": "Dock Cloud"},
+      {"host": "online-live1.services.u-blox.com", "port": 443, "label": "u-blox GPS"}
+    ],
+    "quic": [
+      {"host": "35.166.132.69", "port": 443, "label": "Livestream QUIC"},
+      {"host": "skydio.com", "port": 443, "label": "Skydio QUIC"}
+    ],
+    "ping": ["8.8.8.8", "skydio.com", "44.237.178.82"],
+    "ntp": "time.skydio.com"
+  }
 }
 ```
+
+See `config.example.json` for the complete configuration template.
 
 ## File Structure
 

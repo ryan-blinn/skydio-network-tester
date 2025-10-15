@@ -27,10 +27,33 @@
     "dns": [
       "skydio.com",
       "cloud.skydio.com",
-      "google.com",
-      "8.8.8.8"
+      "skydio-vehicle-data.s3-accelerate.amazonaws.com",
+      "skydio-vehicle-data.s3.amazonaws.com",
+      "skydio-flight-data.s3-accelerate.amazonaws.com",
+      "skydio-ota-updates.s3-accelerate.amazonaws.com",
+      "skydio-controller-ota-updates.s3-accelerate.amazonaws.com",
+      "skydio-media-thumbnails.s3-accelerate.amazonaws.com",
+      "online-live1.services.u-blox.com",
+      "offline-live1.services.u-blox.com",
+      "8.8.8.8",
+      "google.com"
     ],
     "tcp": [
+      {
+        "host": "44.237.178.82",
+        "port": 443,
+        "label": "Skydio Cloud IP 1"
+      },
+      {
+        "host": "52.39.114.182",
+        "port": 443,
+        "label": "Skydio Cloud IP 2"
+      },
+      {
+        "host": "35.84.246.249",
+        "port": 443,
+        "label": "Skydio Cloud IP 3"
+      },
       {
         "host": "skydio.com",
         "port": 443,
@@ -40,9 +63,54 @@
         "host": "cloud.skydio.com",
         "port": 443,
         "label": "Skydio Cloud HTTPS"
+      },
+      {
+        "host": "52.89.241.109",
+        "port": 322,
+        "label": "Livestream TCP 322"
+      },
+      {
+        "host": "34.208.18.168",
+        "port": 7881,
+        "label": "Livestream TCP 7881"
+      },
+      {
+        "host": "44.237.178.82",
+        "port": 51334,
+        "label": "Dock Cloud TCP 51334"
+      },
+      {
+        "host": "skydio-vehicle-data.s3-accelerate.amazonaws.com",
+        "port": 443,
+        "label": "S3 Vehicle Data"
+      },
+      {
+        "host": "skydio-ota-updates.s3-accelerate.amazonaws.com",
+        "port": 443,
+        "label": "S3 OTA Updates"
+      },
+      {
+        "host": "online-live1.services.u-blox.com",
+        "port": 443,
+        "label": "u-blox AssistNow"
       }
     ],
     "quic": [
+      {
+        "host": "35.166.132.69",
+        "port": 443,
+        "label": "Livestream QUIC IP 1"
+      },
+      {
+        "host": "34.214.68.80",
+        "port": 443,
+        "label": "Livestream QUIC IP 2"
+      },
+      {
+        "host": "100.20.220.165",
+        "port": 443,
+        "label": "Livestream QUIC IP 3"
+      },
       {
         "host": "skydio.com",
         "port": 443,
@@ -55,9 +123,12 @@
       }
     ],
     "ping": [
-      "skydio.com",
       "8.8.8.8",
-      "1.1.1.1"
+      "1.1.1.1",
+      "skydio.com",
+      "cloud.skydio.com",
+      "44.237.178.82",
+      "52.39.114.182"
     ],
     "ntp": "time.skydio.com"
   }
