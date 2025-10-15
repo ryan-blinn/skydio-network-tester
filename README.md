@@ -1,6 +1,6 @@
 # Skydio Network Readiness Tester
 
-A modern, intuitive dashboard for testing network readiness on Raspberry Pi devices. This tool replaces older dock hardware methods by providing a comprehensive web-based interface for network connectivity testing.
+A modern, intuitive dashboard for testing network readiness on Raspberry Pi devices. This tool aims to replace C93 testing methods by providing a comprehensive web-based interface for network connectivity testing.
 
 ## Features
 
