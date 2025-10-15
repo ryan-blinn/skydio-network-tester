@@ -12,29 +12,33 @@ class SettingsManager {
     }
     
     setupEventListeners() {
-        // Navigation - wait for DOM to be ready
-        setTimeout(() => {
-            const navItems = document.querySelectorAll('.nav-item');
-            console.log('Found nav items:', navItems.length);
+        // Navigation - attach directly
+        const navItems = document.querySelectorAll('.nav-item');
+        console.log('Setting up event listeners for', navItems.length, 'nav items');
+        
+        if (navItems.length === 0) {
+            console.error('No navigation items found!');
+            return;
+        }
+        
+        navItems.forEach((item, index) => {
+            console.log(`Attaching listener to nav item ${index}:`, item.dataset.section);
             
-            if (navItems.length === 0) {
-                console.error('No navigation items found! Retrying...');
-                setTimeout(() => this.setupEventListeners(), 500);
-                return;
-            }
+            // Remove any existing listeners by cloning
+            const newItem = item.cloneNode(true);
+            item.parentNode.replaceChild(newItem, item);
             
-            navItems.forEach(item => {
-                item.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const section = e.currentTarget.dataset.section;
-                    console.log('Nav item clicked, switching to section:', section);
-                    this.showSection(section);
-                });
+            // Add new listener
+            newItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const section = newItem.dataset.section;
+                console.log('Nav item clicked:', section);
+                this.showSection(section);
             });
-            
-            console.log('Event listeners attached successfully');
-        }, 100);
+        });
+        
+        console.log('Event listeners attached successfully');
 
         // Interface tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
