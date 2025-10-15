@@ -333,24 +333,32 @@ class SettingsManager {
     }
 
     showSection(sectionName) {
-        console.log('Showing section:', sectionName);
+        console.log('=== showSection called with:', sectionName, '===');
         
-        // Update navigation
-        document.querySelectorAll('.nav-item').forEach(item => {
+        // Update navigation - remove active from all
+        const allNavItems = document.querySelectorAll('.nav-item');
+        console.log('Found', allNavItems.length, 'nav items');
+        allNavItems.forEach(item => {
             item.classList.remove('active');
+            console.log('Removed active from:', item.dataset.section);
         });
+        
+        // Add active to selected nav item
         const activeNavItem = document.querySelector(`[data-section="${sectionName}"]`);
         if (activeNavItem) {
             activeNavItem.classList.add('active');
-            console.log('Activated nav item for:', sectionName);
+            console.log('✓ Activated nav item:', sectionName);
         } else {
-            console.error('Nav item not found for section:', sectionName);
+            console.error('✗ Nav item not found for section:', sectionName);
         }
 
         // Update panels - hide all first
-        document.querySelectorAll('.settings-panel').forEach(panel => {
+        const allPanels = document.querySelectorAll('.settings-panel');
+        console.log('Found', allPanels.length, 'panels');
+        allPanels.forEach(panel => {
             panel.classList.remove('active');
             panel.style.display = 'none';
+            console.log('Hidden panel:', panel.id);
         });
         
         // Show the selected panel
@@ -358,16 +366,18 @@ class SettingsManager {
         if (activePanel) {
             activePanel.classList.add('active');
             activePanel.style.display = 'block';
-            console.log('Activated panel:', `${sectionName}-panel`);
+            console.log('✓ Showing panel:', `${sectionName}-panel`);
             
-            // Scroll to top of panel
-            activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Scroll to top smoothly
+            setTimeout(() => {
+                activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
         } else {
-            console.error('Panel not found:', `${sectionName}-panel`);
-            // List all available panels for debugging
-            const allPanels = document.querySelectorAll('.settings-panel');
+            console.error('✗ Panel not found:', `${sectionName}-panel`);
             console.log('Available panels:', Array.from(allPanels).map(p => p.id));
         }
+        
+        console.log('=== showSection complete ===');
     }
 
     showInterface(interfaceName) {
