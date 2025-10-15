@@ -686,6 +686,53 @@
         </div>
     </div>
 
+    <script>
+        // Inline navigation handler as fallback
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Inline script: DOM loaded');
+            
+            // Simple direct navigation handler
+            const navItems = document.querySelectorAll('.nav-item');
+            console.log('Inline script: Found', navItems.length, 'nav items');
+            
+            navItems.forEach(function(item) {
+                item.style.cursor = 'pointer';
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const section = this.getAttribute('data-section');
+                    console.log('Inline script: Clicked section:', section);
+                    
+                    // Remove active from all nav items
+                    document.querySelectorAll('.nav-item').forEach(function(nav) {
+                        nav.classList.remove('active');
+                    });
+                    
+                    // Add active to clicked item
+                    this.classList.add('active');
+                    
+                    // Hide all panels
+                    document.querySelectorAll('.settings-panel').forEach(function(panel) {
+                        panel.style.display = 'none';
+                        panel.classList.remove('active');
+                    });
+                    
+                    // Show selected panel
+                    const targetPanel = document.getElementById(section + '-panel');
+                    if (targetPanel) {
+                        targetPanel.style.display = 'block';
+                        targetPanel.classList.add('active');
+                        console.log('Inline script: Showing panel:', section + '-panel');
+                    } else {
+                        console.error('Inline script: Panel not found:', section + '-panel');
+                    }
+                });
+            });
+            
+            console.log('Inline script: Navigation handlers attached');
+        });
+    </script>
     <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
 </body>
 </html>
