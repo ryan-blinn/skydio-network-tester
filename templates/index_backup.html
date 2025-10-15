@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skydio Network Readiness Tester</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <div class="skydio-logo">
+                        <i class="fas fa-drone"></i>
+                        <span>Skydio</span>
+                    </div>
+                    <h1>Network Readiness Tester</h1>
+                </div>
+                <div class="device-info">
+                    <div class="info-item">
+                        <i class="fas fa-server"></i>
+                        <span id="device-name">Loading...</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-globe"></i>
+                        <span id="public-ip">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard -->
+        <main class="dashboard">
+            <!-- Control Panel -->
+            <div class="control-panel">
+                <button id="start-test" class="start-btn">
+                    <i class="fas fa-play"></i>
+                    Start Network Test
+                </button>
+                <div class="progress-container" id="progress-container" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                    <span class="progress-text" id="progress-text">0%</span>
+                </div>
+            </div>
+
+            <!-- Test Results Grid -->
+            <div class="test-grid" id="test-grid">
+                <!-- DNS Tests -->
+                <div class="test-card" data-test="dns">
+                    <div class="test-header">
+                        <div class="test-icon">
+                            <i class="fas fa-search"></i>
+                        </div>
+                        <div class="test-info">
+                            <h3>DNS Resolution</h3>
+                            <p>Domain name lookups</p>
+                        </div>
+                        <div class="test-status" id="dns-status">
+                            <div class="status-indicator pending"></div>
+                        </div>
+                        <button class="details-btn" data-test="dns">
+                            <i class="fas fa-chevron-down"></i>
+                            Details
+                        </button>
+                    </div>
+                    <div class="test-details" id="dns-details">
+                        <div class="details-content"></div>
+                    </div>
+                </div>
+
+                <!-- TCP Tests -->
+                <div class="test-card" data-test="tcp">
+                    <div class="test-header">
+                        <div class="test-icon">
+                            <i class="fas fa-network-wired"></i>
+                        </div>
+                        <div class="test-info">
+                            <h3>TCP Connectivity</h3>
+                            <p>Port accessibility tests</p>
+                        </div>
+                        <div class="test-status" id="tcp-status">
+                            <div class="status-indicator pending"></div>
+                        </div>
+                        <button class="details-btn" data-test="tcp">
+                            <i class="fas fa-chevron-down"></i>
+                            Details
+                        </button>
+                    </div>
+                    <div class="test-details" id="tcp-details">
+                        <div class="details-content"></div>
+                    </div>
+                </div>
+
+                <!-- Ping Tests -->
+                <div class="test-card" data-test="ping">
+                    <div class="test-header">
+                        <div class="test-icon">
+                            <i class="fas fa-satellite-dish"></i>
+                        </div>
+                        <div class="test-info">
+                            <h3>Ping Tests</h3>
+                            <p>Network latency checks</p>
+                        </div>
+                        <div class="test-status" id="ping-status">
+                            <div class="status-indicator pending"></div>
+                        </div>
+                        <button class="details-btn" data-test="ping">
+                            <i class="fas fa-chevron-down"></i>
+                            Details
+                        </button>
+                    </div>
+                    <div class="test-details" id="ping-details">
+                        <div class="details-content"></div>
+                    </div>
+                </div>
+
+                <!-- NTP Test -->
+                <div class="test-card" data-test="ntp">
+                    <div class="test-header">
+                        <div class="test-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="test-info">
+                            <h3>Time Sync</h3>
+                            <p>NTP server connectivity</p>
+                        </div>
+                        <div class="test-status" id="ntp-status">
+                            <div class="status-indicator pending"></div>
+                        </div>
+                        <button class="details-btn" data-test="ntp">
+                            <i class="fas fa-chevron-down"></i>
+                            Details
+                        </button>
+                    </div>
+                    <div class="test-details" id="ntp-details">
+                        <div class="details-content"></div>
+                    </div>
+                </div>
+
+                <!-- Speed Test -->
+                <div class="test-card" data-test="speedtest">
+                    <div class="test-header">
+                        <div class="test-icon">
+                            <i class="fas fa-tachometer-alt"></i>
+                        </div>
+                        <div class="test-info">
+                            <h3>Speed Test</h3>
+                            <p>Bandwidth measurement</p>
+                        </div>
+                        <div class="test-status" id="speedtest-status">
+                            <div class="status-indicator pending"></div>
+                        </div>
+                        <button class="details-btn" data-test="speedtest">
+                            <i class="fas fa-chevron-down"></i>
+                            Details
+                        </button>
+                    </div>
+                    <div class="test-details" id="speedtest-details">
+                        <div class="details-content"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Speed Test Results -->
+            <div class="speed-results" id="speed-results" style="display: none;">
+                <div class="speed-box">
+                    <div class="speed-icon">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <div class="speed-info">
+                        <div class="speed-label">Download</div>
+                        <div class="speed-value" id="download-speed">-- Mbps</div>
+                    </div>
+                </div>
+                <div class="speed-box">
+                    <div class="speed-icon">
+                        <i class="fas fa-upload"></i>
+                    </div>
+                    <div class="speed-info">
+                        <div class="speed-label">Upload</div>
+                        <div class="speed-value" id="upload-speed">-- Mbps</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Export Panel -->
+            <div class="export-panel" id="export-panel" style="display: none;">
+                <h3>Export Results</h3>
+                <div class="export-options">
+                    <input type="text" id="site-label" placeholder="Site Label (optional)">
+                    <div class="export-buttons">
+                        <button class="export-btn" data-format="pdf">
+                            <i class="fas fa-file-pdf"></i> PDF
+                        </button>
+                        <button class="export-btn" data-format="csv">
+                            <i class="fas fa-file-csv"></i> CSV
+                        </button>
+                        <button class="export-btn" data-format="json">
+                            <i class="fas fa-file-code"></i> JSON
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

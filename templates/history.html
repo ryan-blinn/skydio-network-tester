@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test History - Skydio Network Readiness Tester</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/history.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <img src="{{ url_for('static', filename='images/skydio-logo-white.svg') }}" alt="Skydio" class="skydio-logo">
+                    <h1><i class="fas fa-history"></i> Test History</h1>
+                </div>
+                <div class="header-controls">
+                    <div class="device-info">
+                        <span><i class="fab fa-raspberry-pi"></i> <span id="private-ip">Loading...</span></span>
+                        <span><i class="fas fa-globe"></i> <span id="public-ip">Loading...</span></span>
+                    </div>
+                    <button class="back-btn" onclick="window.location.href='/'">
+                        <i class="fas fa-arrow-left"></i> Back to Tests
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="history-content">
+            <!-- Controls -->
+            <div class="history-controls">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Search by device name, IP, or date...">
+                </div>
+                <div class="control-buttons">
+                    <button class="btn-secondary" onclick="refreshHistory()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                    <button class="btn-danger" onclick="clearAllHistory()">
+                        <i class="fas fa-trash"></i> Clear All
+                    </button>
+                </div>
+            </div>
+
+            <!-- History Stats -->
+            <div class="history-stats" id="history-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="total-tests">0</div>
+                        <div class="stat-label">Total Tests</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon success">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="total-passed">0</div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="total-warnings">0</div>
+                        <div class="stat-label">Warnings</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon error">
+                        <i class="fas fa-times-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="total-failed">0</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History List -->
+            <div class="history-list" id="history-list">
+                <div class="loading-message">
+                    <i class="fas fa-spinner fa-spin"></i> Loading test history...
+                </div>
+            </div>
+
+            <!-- Test Details Modal -->
+            <div class="modal" id="details-modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-info-circle"></i> Test Details</h2>
+                        <button class="close-btn" onclick="closeDetailsModal()">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="modal-body">
+                        <!-- Details will be populated by JavaScript -->
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="closeDetailsModal()">Close</button>
+                        <button class="btn-primary" onclick="exportCurrentTest()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/history.js') }}"></script>
+</body>
+</html>

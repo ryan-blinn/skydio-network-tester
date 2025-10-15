@@ -1,0 +1,8 @@
+Flask==2.3.3
+requests==2.31.0
+fpdf2==2.7.5
+ntplib==0.4.0
+netifaces==0.11.0
+psutil==5.9.5
+databricks-sql-connector==2.9.3
+databricks-sdk==0.12.0

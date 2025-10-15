@@ -1,0 +1,64 @@
+{
+  "web_port": 5001,
+  "auto_test_enabled": false,
+  "max_auto_tests": 3,
+  "test_interval_seconds": 300,
+  "auto_export_enabled": false,
+  "auto_export_format": "pdf",
+  "webhook_enabled": false,
+  "webhook_url": "",
+  "webhook_auth": "",
+  "cloud_push": {
+    "enabled": false,
+    "api_url": "",
+    "api_key": "",
+    "site_label": ""
+  },
+  "databricks": {
+    "enabled": false,
+    "workspace_url": "https://your-workspace.cloud.databricks.com",
+    "access_token": "YOUR_DATABRICKS_TOKEN_HERE",
+    "warehouse_id": "your-warehouse-id",
+    "database": "network_tests",
+    "table": "test_results",
+    "auto_push": false
+  },
+  "targets": {
+    "dns": [
+      "skydio.com",
+      "cloud.skydio.com",
+      "google.com",
+      "8.8.8.8"
+    ],
+    "tcp": [
+      {
+        "host": "skydio.com",
+        "port": 443,
+        "label": "Skydio Main HTTPS"
+      },
+      {
+        "host": "cloud.skydio.com",
+        "port": 443,
+        "label": "Skydio Cloud HTTPS"
+      }
+    ],
+    "quic": [
+      {
+        "host": "skydio.com",
+        "port": 443,
+        "label": "Skydio Main QUIC"
+      },
+      {
+        "host": "cloud.skydio.com",
+        "port": 443,
+        "label": "Skydio Cloud QUIC"
+      }
+    ],
+    "ping": [
+      "skydio.com",
+      "8.8.8.8",
+      "1.1.1.1"
+    ],
+    "ntp": "time.skydio.com"
+  }
+}

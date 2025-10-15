@@ -1,0 +1,21 @@
+[Unit]
+Description=Skydio Network Readiness Tester
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/skydio-network-tester
+Environment=PATH=/home/pi/skydio-network-tester/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/pi/skydio-network-tester/.venv/bin/python3 /home/pi/skydio-network-tester/app.py
+ExecStartPost=/bin/sleep 5
+ExecStartPost=/home/pi/skydio-network-tester/.venv/bin/python3 /home/pi/skydio-network-tester/auto_network_tester.py --daemon
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

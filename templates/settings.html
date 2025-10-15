@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - Skydio Network Readiness Tester</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <img src="{{ url_for('static', filename='images/skydio-logo-white.svg') }}" alt="Skydio" class="skydio-logo">
+                    <h1><i class="fas fa-cog"></i> System Configuration</h1>
+                </div>
+                <div class="header-controls">
+                    <div class="device-info">
+                        <span><i class="fab fa-raspberry-pi"></i> <span id="private-ip">Loading...</span></span>
+                        <span><i class="fas fa-globe"></i> <span id="public-ip">Loading...</span></span>
+                    </div>
+                    <button class="back-btn" onclick="window.location.href='/'">
+                        <i class="fas fa-arrow-left"></i> Back to Tests
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Content -->
+        <div class="settings-content">
+            <!-- Navigation Menu -->
+            <div class="settings-nav">
+                <div class="nav-item active" data-section="system" onclick="window.settingsManager && window.settingsManager.showSection('system')">
+                    <i class="fas fa-microchip"></i>
+                    <span>System Information</span>
+                </div>
+                <div class="nav-item" data-section="network" onclick="window.settingsManager && window.settingsManager.showSection('network')">
+                    <i class="fas fa-network-wired"></i>
+                    <span>Network Configuration <em>*beta</em></span>
+                </div>
+                <div class="nav-item" data-section="testing" onclick="window.settingsManager && window.settingsManager.showSection('testing')">
+                    <i class="fas fa-flask"></i>
+                    <span>Test Configuration</span>
+                </div>
+                <div class="nav-item" data-section="export" onclick="window.settingsManager && window.settingsManager.showSection('export')">
+                    <i class="fas fa-download"></i>
+                    <span>Export & Upload</span>
+                </div>
+                <div class="nav-item" data-section="api" onclick="window.settingsManager && window.settingsManager.showSection('api')">
+                    <i class="fas fa-plug"></i>
+                    <span>API & Data Integration</span>
+                </div>
+                <div class="nav-item" data-section="advanced" onclick="window.settingsManager && window.settingsManager.showSection('advanced')">
+                    <i class="fas fa-tools"></i>
+                    <span>Advanced Options <em>*beta</em></span>
+                </div>
+            </div>
+
+            <!-- Settings Panels -->
+            <div class="settings-panels">
+                <!-- System Information Panel -->
+                <div class="settings-panel active" id="system-panel" style="display: block;">
+                    <h2><i class="fas fa-microchip"></i> System Information</h2>
+                    
+                    <div class="setting-group">
+                        <h3>Device Identity</h3>
+                        <div class="setting-item">
+                            <label for="hostname">Hostname</label>
+                            <div class="input-group">
+                                <input type="text" id="hostname" placeholder="skydio-tester">
+                                <button class="btn-secondary" onclick="updateHostname()">
+                                    <i class="fas fa-save"></i> Update
+                                </button>
+                            </div>
+                            <small>Device hostname (requires reboot)</small>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label>System Status</label>
+                            <div class="status-grid">
+                                <div class="status-item">
+                                    <span class="status-label">CPU Usage</span>
+                                    <span class="status-value" id="cpu-usage">Loading...</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Memory Usage</span>
+                                    <span class="status-value" id="memory-usage">Loading...</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Disk Usage</span>
+                                    <span class="status-value" id="disk-usage">Loading...</span>
+                                </div>
+                                <div class="status-item">
+                                    <span class="status-label">Uptime</span>
+                                    <span class="status-value" id="uptime">Loading...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Network Report Information</h3>
+                        <p style="color: #666; margin-bottom: 1rem;">The following information is included in all exported network reports (PDF, CSV, JSON):</p>
+                        
+                        <div class="info-section">
+                            <h4><i class="fas fa-info-circle"></i> Device Metadata</h4>
+                            <ul class="info-list">
+                                <li><strong>Device Name:</strong> Hostname of the testing device</li>
+                                <li><strong>Private IP Address:</strong> Local network IP address of the Raspberry Pi</li>
+                                <li><strong>Public IP Address:</strong> External IP address</li>
+                                <li><strong>Site Label:</strong> Optional custom label for the test location</li>
+                                <li><strong>Timestamp:</strong> Date and time of test execution</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-section">
+                            <h4><i class="fas fa-search"></i> DNS Resolution Tests</h4>
+                            <ul class="info-list">
+                                <li><strong>Target Domains:</strong> List of domains tested (skydio.com, cloud.skydio.com, google.com, 8.8.8.8)</li>
+                                <li><strong>Resolution Status:</strong> PASS/FAIL for each domain</li>
+                                <li><strong>Resolved IP:</strong> IP address returned by DNS lookup</li>
+                                <li><strong>Latency:</strong> DNS query response time in milliseconds</li>
+                                <li><strong>Error Details:</strong> Specific error messages if resolution fails</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-section">
+                            <h4><i class="fas fa-plug"></i> TCP Connectivity Tests</h4>
+                            <ul class="info-list">
+                                <li><strong>Target Hosts:</strong> Skydio services and ports (443 for HTTPS)</li>
+                                <li><strong>Connection Status:</strong> PASS/FAIL for each endpoint</li>
+                                <li><strong>Connection Latency:</strong> Time to establish TCP connection</li>
+                                <li><strong>Service Labels:</strong> Descriptive names for each endpoint</li>
+                                <li><strong>Error Details:</strong> Connection timeout or refusal information</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-section">
+                            <h4><i class="fas fa-bolt"></i> QUIC Protocol Tests</h4>
+                            <ul class="info-list">
+                                <li><strong>Target Hosts:</strong> HTTP/3 enabled Skydio endpoints</li>
+                                <li><strong>Protocol Status:</strong> PASS/FAIL for QUIC connectivity</li>
+                                <li><strong>Port Information:</strong> UDP port 443 for QUIC</li>
+                                <li><strong>Error Details:</strong> Protocol-specific failure information</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-section">
+                            <h4><i class="fas fa-satellite-dish"></i> Ping Tests</h4>
+                            <ul class="info-list">
+                                <li><strong>Target Hosts:</strong> Key internet endpoints (8.8.8.8, 1.1.1.1, skydio.com)</li>
+                                <li><strong>Latency Metrics:</strong> Average, minimum, and maximum ping times</li>
+                                <li><strong>Packet Loss:</strong> Percentage of lost packets</li>
+                                <li><strong>Status:</strong> PASS/FAIL based on reachability</li>
+                                <li><strong>Raw Output:</strong> Complete ping command results</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-section">
+                            <h4><i class="fas fa-clock"></i> NTP Time Synchronization</h4>
+                            <ul class="info-list">
+                                <li><strong>NTP Server:</strong> time.skydio.com or configured server</li>
+                                <li><strong>Sync Status:</strong> PASS/FAIL for time synchronization</li>
+                                <li><strong>Time Offset:</strong> Difference from NTP server in milliseconds</li>
+                                <li><strong>Error Details:</strong> Connection or synchronization failures</li>
+                            </ul>
+                        </div>
+
+                        <div class="info-section">
+                            <h4><i class="fas fa-tachometer-alt"></i> Speed Test</h4>
+                            <ul class="info-list">
+                                <li><strong>Download Speed:</strong> Measured in Mbps (Ookla CLI or Cloudflare fallback)</li>
+                                <li><strong>Upload Speed:</strong> Measured in Mbps</li>
+                                <li><strong>Status Thresholds:</strong> PASS (≥20 Mbps), WARN (10-20 Mbps), FAIL (<10 Mbps)</li>
+                                <li><strong>Test Method:</strong> Ookla Speedtest CLI or Cloudflare API</li>
+                                <li><strong>Error Details:</strong> Test execution failures</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>System Actions</h3>
+                        <div class="action-buttons">
+                            <button class="btn-warning" onclick="rebootSystem()">
+                                <i class="fas fa-redo"></i> Reboot System
+                            </button>
+                            <button class="btn-secondary" onclick="updateSystem()">
+                                <i class="fas fa-download"></i> Update System
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Network Configuration Panel -->
+                <div class="settings-panel" id="network-panel">
+                    <h2><i class="fas fa-network-wired"></i> Network Configuration <span class="beta-label">*beta</span></h2>
+                    
+                    <div class="beta-notice">
+                        <i class="fas fa-info-circle"></i>
+                        This feature is in beta. Basic network information is shown below.
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>Interface Configuration</h3>
+                        <div class="interface-tabs">
+                            <button class="tab-btn active" data-interface="eth0">Ethernet</button>
+                            <button class="tab-btn" data-interface="wlan0">WiFi</button>
+                        </div>
+                        
+                        <div class="interface-config" id="eth0-config">
+                            <div class="setting-item">
+                                <label>Configuration Mode</label>
+                                <select id="eth0-mode" onchange="toggleNetworkMode('eth0')">
+                                    <option value="dhcp">DHCP (Automatic)</option>
+                                    <option value="static">Static IP</option>
+                                </select>
+                            </div>
+                            
+                            <div class="static-config" id="eth0-static" style="display: none;">
+                                <div class="setting-item">
+                                    <label for="eth0-ip">IP Address</label>
+                                    <input type="text" id="eth0-ip" placeholder="192.168.1.100">
+                                </div>
+                                <div class="setting-item">
+                                    <label for="eth0-netmask">Subnet Mask</label>
+                                    <input type="text" id="eth0-netmask" placeholder="255.255.255.0">
+                                </div>
+                                <div class="setting-item">
+                                    <label for="eth0-gateway">Gateway</label>
+                                    <input type="text" id="eth0-gateway" placeholder="192.168.1.1">
+                                </div>
+                                <div class="setting-item">
+                                    <label for="eth0-dns">DNS Servers</label>
+                                    <input type="text" id="eth0-dns" placeholder="8.8.8.8, 1.1.1.1">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="interface-config" id="wlan0-config" style="display: none;">
+                            <div class="setting-item">
+                                <label for="wifi-ssid">WiFi Network (SSID)</label>
+                                <input type="text" id="wifi-ssid" placeholder="Network Name">
+                            </div>
+                            <div class="setting-item">
+                                <label for="wifi-password">WiFi Password</label>
+                                <input type="password" id="wifi-password" placeholder="Password">
+                            </div>
+                            <div class="setting-item">
+                                <label>Configuration Mode</label>
+                                <select id="wlan0-mode" onchange="toggleNetworkMode('wlan0')">
+                                    <option value="dhcp">DHCP (Automatic)</option>
+                                    <option value="static">Static IP</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button class="btn-primary" onclick="saveNetworkConfig()">
+                            <i class="fas fa-save"></i> Save Network Configuration
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Test Configuration Panel -->
+                <div class="settings-panel" id="testing-panel">
+                    <h2><i class="fas fa-flask"></i> Test Configuration</h2>
+                    
+                    <div class="setting-group">
+                        <h3>Automatic Testing</h3>
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-test-enabled">
+                                <span class="checkmark"></span>
+                                Enable automatic testing on network changes
+                            </label>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="max-auto-tests">Maximum Auto Tests</label>
+                            <input type="number" id="max-auto-tests" min="1" max="10" value="3">
+                            <small>Number of tests to run when network changes detected</small>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="test-interval">Test Interval (seconds)</label>
+                            <input type="number" id="test-interval" min="60" max="3600" value="300">
+                            <small>Time between automatic tests</small>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Test Targets</h3>
+                        <div class="target-config">
+                            <h4>DNS Servers</h4>
+                            <textarea id="dns-targets" rows="3" placeholder="cloud.skydio.com&#10;time.skydio.com&#10;google.com"></textarea>
+                            
+                            <h4>TCP Ports</h4>
+                            <div class="tcp-targets" id="tcp-targets">
+                                <!-- TCP targets will be populated by JavaScript -->
+                            </div>
+                            <button class="btn-secondary" onclick="addTcpTarget()">
+                                <i class="fas fa-plus"></i> Add TCP Target
+                            </button>
+                            
+                            <h4>Ping Targets</h4>
+                            <textarea id="ping-targets" rows="3" placeholder="8.8.8.8&#10;1.1.1.1&#10;cloud.skydio.com"></textarea>
+                            
+                            <h4>NTP Server</h4>
+                            <input type="text" id="ntp-target" placeholder="time.skydio.com">
+                        </div>
+                        
+                        <button class="btn-primary" onclick="saveTestConfig()">
+                            <i class="fas fa-save"></i> Save Test Configuration
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Export & Upload Panel -->
+                <div class="settings-panel" id="export-panel">
+                    <h2><i class="fas fa-download"></i> Export & Upload Settings</h2>
+                    
+                    <div class="setting-group">
+                        <h3>Automatic Export</h3>
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-export-enabled">
+                                <span class="checkmark"></span>
+                                Automatically export results after each test
+                            </label>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="auto-export-format">Export Format</label>
+                            <select id="auto-export-format">
+                                <option value="pdf">PDF Report</option>
+                                <option value="csv">CSV Data</option>
+                                <option value="json">JSON Data</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Remote Upload</h3>
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="webhook-enabled">
+                                <span class="checkmark"></span>
+                                Send results to webhook URL
+                            </label>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="webhook-url">Webhook URL</label>
+                            <input type="url" id="webhook-url" placeholder="https://your-server.com/webhook">
+                            <small>Results will be POST'd as JSON to this URL</small>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="webhook-auth">Authorization Header</label>
+                            <input type="text" id="webhook-auth" placeholder="Bearer your-token">
+                            <small>Optional authentication header</small>
+                        </div>
+                        
+                        <button class="btn-secondary" onclick="testWebhook()">
+                            <i class="fas fa-paper-plane"></i> Test Webhook
+                        </button>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>FTP Upload</h3>
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="ftp-enabled">
+                                <span class="checkmark"></span>
+                                Upload results to FTP server
+                            </label>
+                        </div>
+                        
+                        <div class="ftp-config" id="ftp-config" style="display: none;">
+                            <div class="setting-item">
+                                <label for="ftp-host">FTP Host</label>
+                                <input type="text" id="ftp-host" placeholder="ftp.example.com">
+                            </div>
+                            <div class="setting-item">
+                                <label for="ftp-username">Username</label>
+                                <input type="text" id="ftp-username" placeholder="username">
+                            </div>
+                            <div class="setting-item">
+                                <label for="ftp-password">Password</label>
+                                <input type="password" id="ftp-password" placeholder="password">
+                            </div>
+                            <div class="setting-item">
+                                <label for="ftp-path">Remote Path</label>
+                                <input type="text" id="ftp-path" placeholder="/uploads/">
+                            </div>
+                            <div class="setting-group">
+                                <h3>Device Information</h3>
+                                <div class="info-grid">
+                                    <div class="info-item">
+                                        <label>Hostname</label>
+                                        <span id="device-hostname">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Platform</label>
+                                        <span id="device-platform">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Architecture</label>
+                                        <span id="device-architecture">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Uptime</label>
+                                        <span id="device-uptime">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>CPU Usage</label>
+                                        <span id="cpu-usage">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Memory Usage</label>
+                                        <span id="memory-usage">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>Disk Usage</label>
+                                        <span id="disk-usage">Loading...</span>
+                                    </div>
+                                    <div class="info-item">
+                                        <label>CPU Temperature</label>
+                                        <span id="cpu-temperature">Loading...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button class="btn-primary" onclick="saveExportConfig()">
+                            <i class="fas fa-save"></i> Save Export Configuration
+                        </button>
+                    </div>
+                </div>
+
+                <!-- API Settings Panel -->
+                <div class="settings-panel" id="api-panel">
+                    <h2><i class="fas fa-plug"></i> API & Data Integration</h2>
+                    
+                    <div class="setting-group">
+                        <h3>Cloud Integration</h3>
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cloud-push-enabled">
+                                <span class="checkmark"></span>
+                                Enable automatic cloud push
+                            </label>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="cloud-api-url">Cloud API URL</label>
+                            <input type="url" id="cloud-api-url" placeholder="https://api.example.com/network-results">
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="cloud-api-key">API Key</label>
+                            <input type="password" id="cloud-api-key" placeholder="Enter API key">
+                        </div>
+                        
+                        <button class="btn-secondary" onclick="testCloudConnection()">
+                            <i class="fas fa-satellite-dish"></i> Test Connection
+                        </button>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>Databricks Integration</h3>
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="databricks-enabled">
+                                <span class="checkmark"></span>
+                                Enable Databricks integration
+                            </label>
+                        </div>
+                        
+                        <div class="databricks-config" id="databricks-config" style="display: none;">
+                            <div class="setting-item">
+                                <label for="databricks-workspace-url">Workspace URL</label>
+                                <input type="url" id="databricks-workspace-url" placeholder="https://your-workspace.cloud.databricks.com">
+                                <small>Your Databricks workspace URL</small>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="databricks-access-token">Access Token</label>
+                                <input type="password" id="databricks-access-token" placeholder="Enter access token">
+                                <small>Personal access token for authentication</small>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="databricks-warehouse-id">SQL Warehouse ID</label>
+                                <input type="text" id="databricks-warehouse-id" placeholder="Enter warehouse ID">
+                                <small>SQL warehouse ID for query execution</small>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="databricks-database">Database Name</label>
+                                <input type="text" id="databricks-database" value="network_tests" placeholder="network_tests">
+                                <small>Database to store test results</small>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label for="databricks-table">Table Name</label>
+                                <input type="text" id="databricks-table" value="test_results" placeholder="test_results">
+                                <small>Table to store test results</small>
+                            </div>
+                            
+                            <div class="setting-item">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="databricks-auto-push">
+                                    <span class="checkmark"></span>
+                                    Automatically push results after each test
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn-secondary" onclick="testDatabricksConnection()">
+                                <i class="fas fa-database"></i> Test Connection
+                            </button>
+                            <button class="btn-secondary" onclick="pushToDatabricks()" style="margin-left: 10px;">
+                                <i class="fas fa-upload"></i> Push Latest Results
+                            </button>
+                        </div>
+                        
+                        <button class="btn-primary" onclick="saveDatabricksConfig()">
+                            <i class="fas fa-save"></i> Save Databricks Configuration
+                        </button>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>Web Interface</h3>
+                        <div class="setting-item">
+                            <label for="web-port">Web Interface Port</label>
+                            <input type="number" id="web-port" min="1024" max="65535" value="5001">
+                            <small>Port for web interface (requires restart)</small>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="web-auth-enabled">
+                                <span class="checkmark"></span>
+                                Enable basic authentication
+                            </label>
+                        </div>
+                        
+                        <div class="auth-config" id="auth-config" style="display: none;">
+                            <div class="setting-item">
+                                <label for="web-username">Username</label>
+                                <input type="text" id="web-username" placeholder="admin">
+                            </div>
+                            <div class="setting-item">
+                                <label for="web-password">Password</label>
+                                <input type="password" id="web-password" placeholder="password">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>API Access</h3>
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="api-enabled">
+                                <span class="checkmark"></span>
+                                Enable REST API access
+                            </label>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label for="api-key">API Key</label>
+                            <div class="input-group">
+                                <input type="text" id="api-key" readonly>
+                                <button class="btn-secondary" onclick="generateApiKey()">
+                                    <i class="fas fa-refresh"></i> Generate
+                                </button>
+                            </div>
+                            <small>Required for API access when enabled</small>
+                        </div>
+                        
+                        <button class="btn-primary" onclick="saveApiConfig()">
+                            <i class="fas fa-save"></i> Save API Configuration
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Advanced Options Panel -->
+                <div class="settings-panel" id="advanced-panel">
+                    <h2><i class="fas fa-tools"></i> Advanced Options <span class="beta-label">*beta</span></h2>
+                    
+                    <div class="beta-notice">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Advanced settings may affect system stability. Use with caution.
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>System Control</h3>
+                        <div class="setting-item">
+                            <label for="log-level">Log Level</label>
+                            <select id="log-level">
+                                <option value="INFO">Info</option>
+                                <option value="DEBUG">Debug</option>
+                                <option value="ERROR">Error Only</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="debug-mode">
+                                <span class="checkmark"></span>
+                                Enable debug mode
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>System Actions</h3>
+                        <button class="btn-warning" onclick="downloadLogs()">
+                            <i class="fas fa-download"></i> Download System Logs
+                        </button>
+                        
+                        <button class="btn-danger" onclick="factoryReset()" style="margin-left: 10px;">
+                            <i class="fas fa-exclamation-triangle"></i> Factory Reset
+                        </button>
+                    </div>
+                    
+                    <div class="setting-group">
+                        <h3>Logging</h3>
+                        <div class="setting-item">
+                            <label for="log-level">Log Level</label>
+                            <select id="log-level">
+                                <option value="DEBUG">Debug</option>
+                                <option value="INFO" selected>Info</option>
+                                <option value="WARNING">Warning</option>
+                                <option value="ERROR">Error</option>
+                            </select>
+                        </div>
+                        
+                        <div class="setting-item">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="log-to-file">
+                                <span class="checkmark"></span>
+                                Log to file
+                            </label>
+                        </div>
+                        
+                        <button class="btn-secondary" onclick="viewLogs()">
+                            <i class="fas fa-file-alt"></i> View System Logs
+                        </button>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Factory Reset</h3>
+                        <div class="setting-item">
+                            <p class="warning-text">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                This will reset all settings to factory defaults and reboot the system.
+                            </p>
+                            <button class="btn-danger" onclick="factoryReset()">
+                                <i class="fas fa-trash"></i> Factory Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="setting-group">
+                        <h3>Configuration Backup</h3>
+                        <div class="action-buttons">
+                            <button class="btn-secondary" onclick="backupConfig()">
+                                <i class="fas fa-download"></i> Download Backup
+                            </button>
+                            <button class="btn-secondary" onclick="document.getElementById('restore-file').click()">
+                                <i class="fas fa-upload"></i> Restore Backup
+                            </button>
+                            <input type="file" id="restore-file" style="display: none;" accept=".json" onchange="restoreConfig(this)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/settings.js') }}"></script>
+</body>
+</html>
