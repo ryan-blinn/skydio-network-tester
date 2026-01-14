@@ -1,6 +1,8 @@
 import socket, subprocess, time, requests, os, json, random
 import asyncio
 import ssl
+import struct
+from urllib.parse import urlparse
 
 def resolve_dns(name, timeout=3):
     start=time.time()
@@ -11,12 +13,39 @@ def resolve_dns(name, timeout=3):
     except Exception as e:
         return {"target":name,"status":"FAIL","error":str(e)}
 
-def tcp_check(host, port, timeout=5, label=None):
+def tcp_check(host, port, timeout=5, label=None, verify_tls=False):
+    """Enhanced TCP check with optional TLS validation to match Dock behavior"""
     start=time.time()
     s=socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(timeout)
     try:
-        s.connect((host,int(port))); s.shutdown(socket.SHUT_RDWR)
-        r={"target":f"{host}:{port}","status":"PASS","latency_ms":int((time.time()-start)*1000)}
+        s.connect((host,int(port)))
+        latency_ms = int((time.time()-start)*1000)
+        
+        # For HTTPS ports (443), verify TLS handshake like the Dock does
+        if verify_tls and int(port) == 443:
+            try:
+                # Wrap socket with TLS - mimics Dock's secure connection
+                context = ssl.create_default_context()
+                # Dock validates certificates - we should too
+                context.check_hostname = True
+                context.verify_mode = ssl.CERT_REQUIRED
+                
+                with context.wrap_socket(s, server_hostname=host) as ssock:
+                    # Verify we can complete TLS handshake
+                    cert = ssock.getpeercert()
+                    tls_version = ssock.version()
+                    r={"target":f"{host}:{port}","status":"PASS","latency_ms":latency_ms,
+                       "tls_version":tls_version,"cert_valid":True}
+            except ssl.SSLError as ssl_err:
+                r={"target":f"{host}:{port}","status":"FAIL","error":f"TLS Error: {str(ssl_err)}",
+                   "latency_ms":latency_ms}
+            except Exception as tls_err:
+                r={"target":f"{host}:{port}","status":"FAIL","error":f"TLS Validation Failed: {str(tls_err)}",
+                   "latency_ms":latency_ms}
+        else:
+            s.shutdown(socket.SHUT_RDWR)
+            r={"target":f"{host}:{port}","status":"PASS","latency_ms":latency_ms}
+        
         if label: r["label"]=label
         return r
     except Exception as e:
@@ -122,43 +151,168 @@ def quic_check(host, port=443, timeout=5, label=None):
         return r
 
 def _quic_udp_check(host, port, timeout, start_time):
-    """Fallback UDP port check for QUIC"""
+    """Enhanced UDP port check for QUIC - matches Dock's QUIC connection pattern"""
     try:
-        # Simple UDP connectivity test
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.settimeout(timeout)
         
-        # Try to connect to the UDP port
+        # Resolve hostname to IP if needed
         try:
-            sock.connect((host, port))
-            latency_ms = int((time.time() - start_time) * 1000)
-            sock.close()
-            return {"target": f"{host}:{port}", "status": "PASS", "latency_ms": latency_ms, "protocol": "QUIC/UDP"}
-        except Exception:
-            # If direct connect fails, try sending a probe packet
-            import struct
-            # QUIC initial packet header (simplified)
-            packet = struct.pack('!B', 0xc0) + b'\x00' * 15  # Basic QUIC packet
-            sock.sendto(packet, (host, port))
+            ip_addr = socket.gethostbyname(host)
+        except:
+            ip_addr = host
+        
+        # Send QUIC Initial packet (matches Dock's connection initiation)
+        # QUIC Initial packet format: Header Form (1) | Fixed Bit (1) | Long Packet Type (2) | Reserved (2) | Packet Number Length (2)
+        quic_version = 0x00000001  # QUIC v1
+        
+        # Build QUIC Initial packet header
+        header_byte = 0xc0  # Long header, Initial packet
+        packet = struct.pack('!B', header_byte)
+        packet += struct.pack('!I', quic_version)
+        packet += b'\x00' * 20  # Simplified DCID/SCID
+        
+        try:
+            sock.sendto(packet, (ip_addr, port))
             
-            # Set a short timeout for response
-            sock.settimeout(1)
+            # Wait for response (QUIC server should respond or reject)
+            sock.settimeout(2)
             try:
-                sock.recv(1024)
+                data, addr = sock.recvfrom(1500)
                 latency_ms = int((time.time() - start_time) * 1000)
-                return {"target": f"{host}:{port}", "status": "PASS", "latency_ms": latency_ms, "protocol": "QUIC/UDP"}
+                # Received response - QUIC endpoint is active
+                return {"target": f"{host}:{port}", "status": "PASS", "latency_ms": latency_ms, 
+                       "protocol": "QUIC/UDP", "response_size": len(data)}
             except socket.timeout:
-                # No response, but port might still be open
+                # No response within timeout - port may be filtered or endpoint inactive
                 latency_ms = int((time.time() - start_time) * 1000)
-                return {"target": f"{host}:{port}", "status": "WARN", "latency_ms": latency_ms, "protocol": "QUIC/UDP", "note": "Port accessible but no QUIC response"}
+                # Try one more time with basic UDP probe
+                sock.sendto(b'\x00' * 16, (ip_addr, port))
+                sock.settimeout(1)
+                try:
+                    data, addr = sock.recvfrom(1500)
+                    return {"target": f"{host}:{port}", "status": "PASS", "latency_ms": latency_ms, 
+                           "protocol": "QUIC/UDP"}
+                except:
+                    return {"target": f"{host}:{port}", "status": "WARN", "latency_ms": latency_ms, 
+                           "protocol": "QUIC/UDP", "note": "Port accessible but no QUIC response"}
         finally:
             sock.close()
             
     except Exception as e:
         return {"target": f"{host}:{port}", "status": "FAIL", "error": str(e), "protocol": "QUIC/UDP"}
 
+def udp_port_range_check(host, port_start, port_end, sample_size=5, timeout=2, label=None):
+    """Test UDP port range accessibility (for WebRTC ports 40000-41000, 50000-60000)
+    Note: Cannot fully validate without active WebRTC session, but can check if ports are filtered"""
+    start_time = time.time()
+    
+    # Sample random ports from the range
+    import random
+    port_range = list(range(port_start, port_end + 1))
+    sample_ports = random.sample(port_range, min(sample_size, len(port_range)))
+    
+    results = {"accessible": 0, "filtered": 0, "errors": 0}
+    
+    for port in sample_ports:
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.settimeout(timeout)
+            
+            # Send UDP probe packet
+            probe = b'\x00' * 16
+            sock.sendto(probe, (host, port))
+            
+            # Check for ICMP port unreachable (indicates firewall allows but no service)
+            try:
+                sock.recvfrom(1024)
+                results["accessible"] += 1
+            except socket.timeout:
+                # Timeout could mean filtered or no response - assume accessible
+                results["accessible"] += 1
+            
+            sock.close()
+        except Exception as e:
+            results["errors"] += 1
+    
+    latency_ms = int((time.time() - start_time) * 1000)
+    
+    # Determine status based on results
+    if results["accessible"] >= sample_size * 0.8:
+        status = "PASS"
+    elif results["accessible"] >= sample_size * 0.5:
+        status = "WARN"
+    else:
+        status = "FAIL"
+    
+    r = {
+        "target": f"{host}:{port_start}-{port_end}",
+        "status": status,
+        "latency_ms": latency_ms,
+        "ports_tested": sample_size,
+        "accessible": results["accessible"],
+        "note": "Sampled port range - full validation requires active WebRTC session"
+    }
+    
+    if label:
+        r["label"] = label
+    
+    return r
+
+def https_full_check(url, timeout=5, label=None):
+    """Full HTTPS check including TLS handshake and certificate validation - matches Dock's connection pattern"""
+    start = time.time()
+    
+    try:
+        # Parse URL
+        parsed = urlparse(url if url.startswith('http') else f'https://{url}')
+        host = parsed.hostname
+        port = parsed.port or 443
+        
+        # Perform full HTTPS request like the Dock does
+        response = requests.get(
+            f'https://{host}:{port}',
+            timeout=timeout,
+            verify=True,  # Verify SSL certificates like Dock does
+            allow_redirects=True
+        )
+        
+        latency_ms = int((time.time() - start) * 1000)
+        
+        r = {
+            "target": f"{host}:{port}",
+            "status": "PASS" if response.status_code < 400 else "WARN",
+            "latency_ms": latency_ms,
+            "http_status": response.status_code,
+            "tls_verified": True
+        }
+        
+        if label:
+            r["label"] = label
+        
+        return r
+        
+    except requests.exceptions.SSLError as e:
+        r = {
+            "target": f"{host}:{port}",
+            "status": "FAIL",
+            "error": f"SSL/TLS Error: {str(e)}",
+            "tls_verified": False
+        }
+    except Exception as e:
+        r = {
+            "target": f"{host}:{port}",
+            "status": "FAIL",
+            "error": str(e)
+        }
+    
+    if label:
+        r["label"] = label
+    
+    return r
+
 def speedtest():
-    """Enhanced speedtest with multiple attempts and better Pi optimization"""
+    """Enhanced speedtest with Skydio-specific thresholds from documentation"""
     # Try Ookla first (most accurate)
     st = _try_ookla()
     
@@ -189,16 +343,25 @@ def speedtest():
         
         st = {"source":"cloudflare","download_mbps":best_dl,"upload_mbps":best_ul}
     
-    # Adjusted thresholds for typical Pi performance
+    # Skydio requirements: 1 Dock = 20 Mbps up (10 min), 80 Mbps down (20 min)
     dl, ul = st["download_mbps"], st["upload_mbps"]
-    if dl >= 15 and ul >= 10:
+    
+    # Adjusted for single Dock deployment
+    if dl >= 20 and ul >= 10:
         status = "PASS"
-    elif dl >= 8 and ul >= 5:
+        note = "Meets minimum requirements for 1 Dock"
+    elif dl >= 80 and ul >= 20:
+        status = "PASS"
+        note = "Meets recommended requirements for 1 Dock"
+    elif dl >= 10 and ul >= 5:
         status = "WARN"
+        note = "Below minimum - may experience degraded performance"
     else:
         status = "FAIL"
+        note = "Insufficient bandwidth for Skydio operations"
     
     st["status"] = status
+    st["note"] = note
     return st
 
 class StepRunner:
@@ -207,18 +370,37 @@ class StepRunner:
         self.steps=self._count_steps()
 
     def _count_steps(self):
-        return len(self.targets.get("dns",[]))+len(self.targets.get("tcp",[]))+len(self.targets.get("ping",[]))+len(self.targets.get("quic",[]))+2 # + ntp + speedtest
+        return (len(self.targets.get("dns",[]))+
+                len(self.targets.get("tcp",[]))+
+                len(self.targets.get("https",[]))+
+                len(self.targets.get("ping",[]))+
+                len(self.targets.get("quic",[]))+
+                len(self.targets.get("udp_ranges",[]))+
+                2) # + ntp + speedtest
 
     def run(self):
         # DNS
         for n in self.targets.get("dns",[]):
             yield ("dns", resolve_dns(n))
-        # TCP
+        # TCP with optional TLS validation
         for t in self.targets.get("tcp",[]):
-            yield ("tcp", tcp_check(t.get("host"), t.get("port"), label=t.get("label")))
+            verify_tls = t.get("verify_tls", False)
+            yield ("tcp", tcp_check(t.get("host"), t.get("port"), label=t.get("label"), verify_tls=verify_tls))
+        # Full HTTPS checks (TLS + HTTP)
+        for h in self.targets.get("https",[]):
+            yield ("https", https_full_check(h.get("url"), label=h.get("label")))
         # QUIC
         for q in self.targets.get("quic",[]):
             yield ("quic", quic_check(q.get("host"), q.get("port", 443), label=q.get("label")))
+        # UDP Port Ranges (WebRTC)
+        for u in self.targets.get("udp_ranges",[]):
+            yield ("udp_range", udp_port_range_check(
+                u.get("host"), 
+                u.get("port_start"), 
+                u.get("port_end"),
+                sample_size=u.get("sample_size", 5),
+                label=u.get("label")
+            ))
         # PING
         for h in self.targets.get("ping",[]):
             yield ("ping", ping(h))

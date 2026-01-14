@@ -1,0 +1,32 @@
+[Unit]
+Description=Skydio Network Readiness Tester (Kiosk Mode)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/skydio-network-tester
+Environment=PATH=/home/pi/skydio-network-tester/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=FLASK_ENV=production
+Environment=FLASK_APP=app.py
+
+# Start Flask app on port 5001
+ExecStart=/home/pi/skydio-network-tester/.venv/bin/python3 /home/pi/skydio-network-tester/app.py
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=skydio-network-tester
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

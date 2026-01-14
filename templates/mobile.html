@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Skydio Network Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            overflow-x: hidden;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+        
+        /* Optimized for 3.5" screen (480x320 or 320x480) */
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 10px;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 15px 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .device-info {
+            font-size: 11px;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .status-card {
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .test-controls {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 14px 10px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            touch-action: manipulation;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+        
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .btn-secondary:active {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .progress-section {
+            display: none;
+            margin-bottom: 15px;
+        }
+        
+        .progress-section.active {
+            display: block;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            transition: width 0.3s;
+            border-radius: 4px;
+        }
+        
+        .progress-text {
+            font-size: 12px;
+            text-align: center;
+            opacity: 0.9;
+        }
+        
+        .results-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .summary-item {
+            background: rgba(255,255,255,0.1);
+            padding: 12px 8px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .summary-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 3px;
+        }
+        
+        .summary-label {
+            font-size: 10px;
+            opacity: 0.8;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .status-pass { color: #4ade80; }
+        .status-warn { color: #fbbf24; }
+        .status-fail { color: #f87171; }
+        
+        .test-results {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        
+        .test-category {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .category-header {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .test-item {
+            background: rgba(0,0,0,0.2);
+            padding: 8px;
+            border-radius: 6px;
+            margin-bottom: 5px;
+            font-size: 11px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .test-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .test-label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-right: 8px;
+        }
+        
+        .test-status {
+            font-weight: 700;
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        
+        .status-badge-pass {
+            background: rgba(74, 222, 128, 0.2);
+            color: #4ade80;
+        }
+        
+        .status-badge-warn {
+            background: rgba(251, 191, 36, 0.2);
+            color: #fbbf24;
+        }
+        
+        .status-badge-fail {
+            background: rgba(248, 113, 113, 0.2);
+            color: #f87171;
+        }
+        
+        .latency-info {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-left: 5px;
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 15px;
+            font-size: 10px;
+            opacity: 0.7;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.3);
+            border-radius: 3px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        /* Touch-friendly spacing */
+        @media (max-height: 400px) {
+            .container { padding: 5px; }
+            .header { padding: 10px; margin-bottom: 10px; }
+            .status-card { padding: 10px; margin-bottom: 8px; }
+            .btn { padding: 10px 8px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛰️ Skydio Network Tester</h1>
+            <div class="device-info" id="deviceInfo">
+                <div id="hostname">Loading...</div>
+                <div id="ipAddress">IP: ---.---.---.---</div>
+            </div>
+        </div>
+        
+        <div class="test-controls">
+            <button class="btn btn-primary" id="startTest" onclick="startTest()">
+                ▶ Start Test
+            </button>
+            <button class="btn btn-secondary" id="stopTest" onclick="stopTest()" disabled>
+                ⏹ Stop
+            </button>
+        </div>
+        
+        <div class="progress-section" id="progressSection">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
+            <div class="progress-text" id="progressText">Initializing...</div>
+        </div>
+        
+        <div class="status-card" id="summaryCard" style="display: none;">
+            <div class="results-summary">
+                <div class="summary-item">
+                    <div class="summary-value status-pass" id="passCount">0</div>
+                    <div class="summary-label">Passed</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value status-warn" id="warnCount">0</div>
+                    <div class="summary-label">Warnings</div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-value status-fail" id="failCount">0</div>
+                    <div class="summary-label">Failed</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-results" id="testResults"></div>
+        
+        <div class="footer">
+            <div>Skydio Network Readiness Tester v2.0</div>
+            <div>Optimized for Raspberry Pi 3.5" Display</div>
+        </div>
+    </div>
+    
+    <script>
+        let currentJobId = null;
+        let pollInterval = null;
+        
+        // Load device info on startup
+        async function loadDeviceInfo() {
+            try {
+                const response = await fetch('/api/info');
+                const data = await response.json();
+                document.getElementById('hostname').textContent = data.device_name || 'Unknown Device';
+                document.getElementById('ipAddress').textContent = `IP: ${data.private_ip || 'Unknown'}`;
+            } catch (error) {
+                console.error('Failed to load device info:', error);
+            }
+        }
+        
+        async function startTest() {
+            const startBtn = document.getElementById('startTest');
+            const stopBtn = document.getElementById('stopTest');
+            const progressSection = document.getElementById('progressSection');
+            const summaryCard = document.getElementById('summaryCard');
+            const testResults = document.getElementById('testResults');
+            
+            startBtn.disabled = true;
+            stopBtn.disabled = false;
+            progressSection.classList.add('active');
+            summaryCard.style.display = 'none';
+            testResults.innerHTML = '';
+            
+            try {
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                currentJobId = data.job_id;
+                
+                // Start polling for results
+                pollInterval = setInterval(pollResults, 500);
+            } catch (error) {
+                console.error('Failed to start test:', error);
+                resetUI();
+            }
+        }
+        
+        async function pollResults() {
+            if (!currentJobId) return;
+            
+            try {
+                const response = await fetch(`/api/status/${currentJobId}`);
+                const data = await response.json();
+                
+                updateProgress(data);
+                
+                if (data.done) {
+                    clearInterval(pollInterval);
+                    displayResults(data.results);
+                    resetUI();
+                }
+            } catch (error) {
+                console.error('Failed to poll results:', error);
+            }
+        }
+        
+        function updateProgress(data) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            const percent = data.total_steps > 0 ? (data.current_step / data.total_steps * 100) : 0;
+            progressFill.style.width = `${percent}%`;
+            progressText.innerHTML = `<span class="loading-spinner"></span>Testing... ${data.current_step}/${data.total_steps}`;
+        }
+        
+        function displayResults(results) {
+            const summaryCard = document.getElementById('summaryCard');
+            const testResults = document.getElementById('testResults');
+            
+            let passCount = 0, warnCount = 0, failCount = 0;
+            
+            // Count statuses
+            Object.keys(results).forEach(category => {
+                if (category === '_meta') return;
+                results[category].forEach(test => {
+                    if (test.status === 'PASS') passCount++;
+                    else if (test.status === 'WARN') warnCount++;
+                    else if (test.status === 'FAIL') failCount++;
+                });
+            });
+            
+            // Update summary
+            document.getElementById('passCount').textContent = passCount;
+            document.getElementById('warnCount').textContent = warnCount;
+            document.getElementById('failCount').textContent = failCount;
+            summaryCard.style.display = 'block';
+            
+            // Display detailed results
+            let html = '';
+            const categoryLabels = {
+                'dns': 'DNS Resolution',
+                'tcp': 'TCP Connectivity',
+                'https': 'HTTPS Validation',
+                'quic': 'QUIC Protocol',
+                'udp_range': 'UDP Port Ranges',
+                'ping': 'Network Latency',
+                'ntp': 'Time Sync',
+                'speedtest': 'Bandwidth'
+            };
+            
+            Object.keys(results).forEach(category => {
+                if (category === '_meta') return;
+                
+                const tests = results[category];
+                const categoryLabel = categoryLabels[category] || category.toUpperCase();
+                
+                html += `<div class="test-category">
+                    <div class="category-header">
+                        <span>${categoryLabel}</span>
+                        <span>${tests.length} tests</span>
+                    </div>`;
+                
+                tests.forEach(test => {
+                    const statusClass = `status-badge-${test.status.toLowerCase()}`;
+                    const label = test.label || test.target || 'Test';
+                    const latency = test.latency_ms ? `<span class="latency-info">${test.latency_ms}ms</span>` : '';
+                    
+                    html += `<div class="test-item">
+                        <div class="test-label">${label}</div>
+                        <div>
+                            <span class="test-status ${statusClass}">${test.status}</span>
+                            ${latency}
+                        </div>
+                    </div>`;
+                });
+                
+                html += '</div>';
+            });
+            
+            testResults.innerHTML = html;
+        }
+        
+        function stopTest() {
+            if (pollInterval) {
+                clearInterval(pollInterval);
+            }
+            currentJobId = null;
+            resetUI();
+        }
+        
+        function resetUI() {
+            document.getElementById('startTest').disabled = false;
+            document.getElementById('stopTest').disabled = true;
+            document.getElementById('progressSection').classList.remove('active');
+            document.getElementById('progressFill').style.width = '0%';
+        }
+        
+        // Initialize
+        loadDeviceInfo();
+        
+        // Auto-refresh device info every 30 seconds
+        setInterval(loadDeviceInfo, 30000);
+    </script>
+</body>
+</html>

@@ -97,9 +97,21 @@ DEFAULT_TARGETS = {
     {"host":"100.20.220.165","port":443,"label":"Livestream QUIC IP 3"},
     {"host":"35.85.110.98","port":443,"label":"Livestream QUIC IP 4"},
     {"host":"35.164.30.49","port":443,"label":"Livestream QUIC IP 5"},
-    {"host":"52.32.44.190","port":443,"label":"Livestream QUIC IP 6"},
-    {"host":"skydio.com","port":443,"label":"Skydio Main QUIC"},
-    {"host":"cloud.skydio.com","port":443,"label":"Skydio Cloud QUIC"}
+    {"host":"52.32.44.190","port":443,"label":"Livestream QUIC IP 6"}
+  ],
+  "https": [
+    # Full HTTPS validation (TLS + HTTP) - matches Dock's connection pattern
+    {"url":"https://cloud.skydio.com","label":"Skydio Cloud HTTPS"},
+    {"url":"https://skydio.com","label":"Skydio Main HTTPS"},
+    {"url":"https://skydio-vehicle-data.s3-accelerate.amazonaws.com","label":"S3 Vehicle Data"},
+    {"url":"https://skydio-ota-updates.s3-accelerate.amazonaws.com","label":"S3 OTA Updates"},
+    {"url":"https://online-live1.services.u-blox.com","label":"u-blox GPS Assist"}
+  ],
+  "udp_ranges": [
+    # Rule 9: Dock to Livestreaming UDP port ranges (WebRTC)
+    {"host":"34.208.18.168","port_start":40000,"port_end":41000,"sample_size":5,"label":"Dock WebRTC Range 40000-41000"},
+    # Rule 4: Client to Livestreaming UDP port ranges (WebRTC)
+    {"host":"50.112.181.82","port_start":50000,"port_end":60000,"sample_size":5,"label":"Client WebRTC Range 50000-60000"}
   ],
   "ping": [
     # Core connectivity tests
@@ -140,6 +152,10 @@ def _private_ip():
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/mobile')
+def mobile():
+    return render_template('mobile.html')
 
 @app.route('/settings')
 def settings():
