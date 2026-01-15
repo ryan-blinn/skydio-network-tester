@@ -24,6 +24,7 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
+            overscroll-behavior-y: contain;
             font-size: 14px;
             line-height: 1.4;
         }
@@ -41,10 +42,10 @@
             background: rgba(255,255,255,0.1);
             border-radius: 12px;
             margin-bottom: 12px;
-            backdrop-filter: blur(10px);
             position: sticky;
             top: 0;
             z-index: 10;
+            border: 1px solid rgba(255,255,255,0.12);
         }
 
         .header h1 {
@@ -66,9 +67,10 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: transform 0.12s, background-color 0.12s, opacity 0.12s;
             text-align: center;
             touch-action: manipulation;
+            user-select: none;
         }
 
         .btn:active {
@@ -90,7 +92,6 @@
             border-radius: 12px;
             padding: 12px;
             margin-bottom: 12px;
-            backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.2);
         }
 

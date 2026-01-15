@@ -24,6 +24,7 @@
             overflow-y: auto;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
+            overscroll-behavior-y: contain;
             font-size: 14px;
             line-height: 1.4;
         }
@@ -42,7 +43,7 @@
             background: rgba(255,255,255,0.1);
             border-radius: 12px;
             margin-bottom: 15px;
-            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.12);
         }
         
         .header h1 {
@@ -62,7 +63,6 @@
             border-radius: 12px;
             padding: 15px;
             margin-bottom: 12px;
-            backdrop-filter: blur(10px);
             border: 1px solid rgba(255,255,255,0.2);
         }
         
@@ -77,8 +77,8 @@
             margin-left: -8px;
             margin-right: -8px;
             background: rgba(0,0,0,0.18);
-            backdrop-filter: blur(10px);
             border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.10);
         }
         
         .btn {
@@ -89,15 +89,16 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: transform 0.12s, background-color 0.12s, opacity 0.12s;
             text-align: center;
             touch-action: manipulation;
+            user-select: none;
         }
         
         .btn-primary {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
         }
         
         .btn-primary:active {
@@ -197,6 +198,8 @@
             list-style: none;
             cursor: pointer;
             user-select: none;
+            touch-action: pan-y;
+            padding: 4px 0;
         }
 
         summary.category-header::-webkit-details-marker {
