@@ -11,12 +11,19 @@
             box-sizing: border-box;
             -webkit-tap-highlight-color: transparent;
         }
+
+        html, body {
+            height: 100%;
+        }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
             overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
             font-size: 14px;
             line-height: 1.4;
         }
@@ -63,6 +70,15 @@
             display: flex;
             gap: 8px;
             margin-bottom: 15px;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            padding: 8px;
+            margin-left: -8px;
+            margin-right: -8px;
+            background: rgba(0,0,0,0.18);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
         }
         
         .btn {
@@ -165,16 +181,26 @@
         .status-fail { color: #f87171; }
         
         .test-results {
-            max-height: 300px;
-            overflow-y: auto;
             margin-bottom: 15px;
+            touch-action: pan-y;
         }
         
-        .test-category {
+        details.test-category {
             background: rgba(255,255,255,0.1);
             border-radius: 8px;
             padding: 10px;
             margin-bottom: 8px;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+
+        summary.category-header {
+            list-style: none;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        summary.category-header::-webkit-details-marker {
+            display: none;
         }
         
         .category-header {
@@ -478,11 +504,19 @@
 
                 const categoryLabel = categoryLabels[category] || category.toUpperCase();
 
-                html += `<div class="test-category">
-                    <div class="category-header">
+                let cPass = 0, cWarn = 0, cFail = 0;
+                tests.forEach(t => {
+                    if (t.status === 'PASS') cPass++;
+                    else if (t.status === 'WARN') cWarn++;
+                    else if (t.status === 'FAIL') cFail++;
+                });
+                const shouldOpen = cFail > 0 || cWarn > 0;
+
+                html += `<details class="test-category" ${shouldOpen ? 'open' : ''}>
+                    <summary class="category-header">
                         <span>${categoryLabel}</span>
-                        <span>${tests.length} tests</span>
-                    </div>`;
+                        <span>${cFail ? `FAIL ${cFail}` : (cWarn ? `WARN ${cWarn}` : `PASS ${cPass}`)}</span>
+                    </summary>`;
 
                 tests.forEach(test => {
                     const statusClass = `status-badge-${String(test.status || '').toLowerCase()}`;
@@ -498,7 +532,7 @@
                     </div>`;
                 });
 
-                html += '</div>';
+                html += '</details>';
             });
 
             Object.keys(singleTests).forEach(category => {
@@ -506,11 +540,13 @@
                 if (!test) return;
 
                 const categoryLabel = categoryLabels[category] || category.toUpperCase();
-                html += `<div class="test-category">
-                    <div class="category-header">
+
+                const shouldOpen = test.status && test.status !== 'PASS';
+                html += `<details class="test-category" ${shouldOpen ? 'open' : ''}>
+                    <summary class="category-header">
                         <span>${categoryLabel}</span>
-                        <span>1 test</span>
-                    </div>`;
+                        <span>${test.status || 'UNKNOWN'}</span>
+                    </summary>`;
 
                 const statusClass = `status-badge-${String(test.status || '').toLowerCase()}`;
                 const label = test.label || test.target || test.source || 'Test';
@@ -524,7 +560,7 @@
                     </div>
                 </div>`;
 
-                html += '</div>';
+                html += '</details>';
             });
             
             testResults.innerHTML = html;
