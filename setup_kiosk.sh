@@ -44,6 +44,8 @@ cat > /etc/lightdm/lightdm.conf.d/autologin.conf << EOF
 [Seat:*]
 autologin-user=$ACTUAL_USER
 autologin-user-timeout=0
+user-session=openbox
+autologin-session=openbox
 EOF
 
 echo ""
