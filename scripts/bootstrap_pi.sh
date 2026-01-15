@@ -12,6 +12,21 @@ REPO_URL_DEFAULT="https://github.com/ryan-blinn/skydio-network-tester"
 BRANCH_DEFAULT="main"
 INSTALL_DIR_DEFAULT="$HOME/skydio-network-tester"
 
+INPUT_FD=0
+if ! [ -t 0 ] && [ -r /dev/tty ]; then
+  exec 3</dev/tty
+  INPUT_FD=3
+fi
+
+read_from_input() {
+  local __var_name="$1"
+  if [ "$INPUT_FD" -eq 0 ]; then
+    read -r "$__var_name" || true
+  else
+    read -r -u "$INPUT_FD" "$__var_name" || true
+  fi
+}
+
 print_header() {
   echo ""
   echo "=========================================="
@@ -32,7 +47,7 @@ prompt_yes_no() {
       printf "%s [y/N]: " "$prompt"
     fi
 
-    read -r ans || true
+    read_from_input ans
     ans="${ans:-$default}"
 
     case "$ans" in
@@ -128,7 +143,7 @@ clone_or_update_repo() {
     echo "  2) Remove and reinstall"
     echo "  3) Cancel"
     printf "Enter choice [1-3]: "
-    read -r choice
+    read_from_input choice
 
     case "$choice" in
       1)
@@ -263,7 +278,7 @@ main() {
   echo "Install directory: $install_dir"
   if prompt_yes_no "Use a different install directory?" "n"; then
     printf "Enter install directory: "
-    read -r install_dir
+    read_from_input install_dir
     install_dir="${install_dir:-$INSTALL_DIR_DEFAULT}"
   fi
 
@@ -291,7 +306,7 @@ main() {
   echo "  2) Setup kiosk mode (3.5\" display)"
   echo "  3) Just install, I'll configure later"
   printf "Enter choice [1-3]: "
-  read -r next_step
+  read_from_input next_step
 
   case "$next_step" in
     1)
