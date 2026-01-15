@@ -297,6 +297,11 @@
                 <div id="hostname">Loading...</div>
                 <div id="ipAddress">IP: ---.---.---.---</div>
             </div>
+            <div style="margin-top: 10px;">
+                <button class="btn btn-secondary" style="width: 100%; padding: 10px;" onclick="window.location.href='/mobile/settings'">
+                    ⚙ Settings
+                </button>
+            </div>
         </div>
         
         <div class="test-controls">
@@ -370,17 +375,13 @@
             testResults.innerHTML = '';
             
             try {
-                const response = await fetch('/api/run', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({})
-                });
+                const response = await fetch('/api/start', { method: 'POST' });
                 
                 const data = await response.json();
                 currentJobId = data.job_id;
                 
                 // Start polling for results
-                pollInterval = setInterval(pollResults, 500);
+                pollInterval = setInterval(pollResults, 1000);
             } catch (error) {
                 console.error('Failed to start test:', error);
                 resetUI();
@@ -409,10 +410,10 @@
         function updateProgress(data) {
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
-            
-            const percent = data.total_steps > 0 ? (data.current_step / data.total_steps * 100) : 0;
+
+            const percent = typeof data.progress === 'number' ? data.progress : 0;
             progressFill.style.width = `${percent}%`;
-            progressText.innerHTML = `<span class="loading-spinner"></span>Testing... ${data.current_step}/${data.total_steps}`;
+            progressText.innerHTML = `<span class="loading-spinner"></span>Testing... ${percent}%`;
         }
         
         function displayResults(results) {
@@ -420,15 +421,36 @@
             const testResults = document.getElementById('testResults');
             
             let passCount = 0, warnCount = 0, failCount = 0;
+
+            const categoryTests = {
+                dns: results?.dns || [],
+                tcp: results?.tcp || [],
+                https: results?.https || [],
+                quic: results?.quic || [],
+                udp_range: results?.udp_range || [],
+                ping: results?.ping || [],
+            };
+
+            const singleTests = {
+                ntp: results?.ntp || null,
+                speedtest: results?.speedtest || null,
+            };
             
             // Count statuses
-            Object.keys(results).forEach(category => {
-                if (category === '_meta') return;
-                results[category].forEach(test => {
+            Object.keys(categoryTests).forEach(category => {
+                categoryTests[category].forEach(test => {
                     if (test.status === 'PASS') passCount++;
                     else if (test.status === 'WARN') warnCount++;
                     else if (test.status === 'FAIL') failCount++;
                 });
+            });
+
+            Object.keys(singleTests).forEach(category => {
+                const test = singleTests[category];
+                if (!test || !test.status) return;
+                if (test.status === 'PASS') passCount++;
+                else if (test.status === 'WARN') warnCount++;
+                else if (test.status === 'FAIL') failCount++;
             });
             
             // Update summary
@@ -449,33 +471,59 @@
                 'ntp': 'Time Sync',
                 'speedtest': 'Bandwidth'
             };
-            
-            Object.keys(results).forEach(category => {
-                if (category === '_meta') return;
-                
-                const tests = results[category];
+
+            Object.keys(categoryTests).forEach(category => {
+                const tests = categoryTests[category];
+                if (!tests || tests.length === 0) return;
+
                 const categoryLabel = categoryLabels[category] || category.toUpperCase();
-                
+
                 html += `<div class="test-category">
                     <div class="category-header">
                         <span>${categoryLabel}</span>
                         <span>${tests.length} tests</span>
                     </div>`;
-                
+
                 tests.forEach(test => {
-                    const statusClass = `status-badge-${test.status.toLowerCase()}`;
+                    const statusClass = `status-badge-${String(test.status || '').toLowerCase()}`;
                     const label = test.label || test.target || 'Test';
                     const latency = test.latency_ms ? `<span class="latency-info">${test.latency_ms}ms</span>` : '';
-                    
+
                     html += `<div class="test-item">
                         <div class="test-label">${label}</div>
                         <div>
-                            <span class="test-status ${statusClass}">${test.status}</span>
+                            <span class="test-status ${statusClass}">${test.status || 'UNKNOWN'}</span>
                             ${latency}
                         </div>
                     </div>`;
                 });
-                
+
+                html += '</div>';
+            });
+
+            Object.keys(singleTests).forEach(category => {
+                const test = singleTests[category];
+                if (!test) return;
+
+                const categoryLabel = categoryLabels[category] || category.toUpperCase();
+                html += `<div class="test-category">
+                    <div class="category-header">
+                        <span>${categoryLabel}</span>
+                        <span>1 test</span>
+                    </div>`;
+
+                const statusClass = `status-badge-${String(test.status || '').toLowerCase()}`;
+                const label = test.label || test.target || test.source || 'Test';
+                const latency = test.latency_ms ? `<span class="latency-info">${test.latency_ms}ms</span>` : '';
+
+                html += `<div class="test-item">
+                    <div class="test-label">${label}</div>
+                    <div>
+                        <span class="test-status ${statusClass}">${test.status || 'UNKNOWN'}</span>
+                        ${latency}
+                    </div>
+                </div>`;
+
                 html += '</div>';
             });
             

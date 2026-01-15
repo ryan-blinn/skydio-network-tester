@@ -157,6 +157,10 @@ def index():
 def mobile():
     return render_template('mobile.html')
 
+@app.route('/mobile/settings')
+def mobile_settings():
+    return render_template('mobile_settings.html')
+
 @app.route('/settings')
 def settings():
     return render_template('settings.html')
@@ -271,12 +275,24 @@ def _run_job(jid):
     
     runner = StepRunner(targets)
     total = runner.steps
-    results = {"dns":[], "tcp":[], "quic":[], "ping":[], "ntp":None, "speedtest":None, "_meta":{"device_name": socket.gethostname(), "public_ip": _public_ip(), "private_ip": _private_ip()}}
+    results = {
+        "dns": [],
+        "tcp": [],
+        "https": [],
+        "quic": [],
+        "udp_range": [],
+        "ping": [],
+        "ntp": None,
+        "speedtest": None,
+        "_meta": {"device_name": socket.gethostname(), "public_ip": _public_ip(), "private_ip": _private_ip()},
+    }
     done = 0
     for t, r in runner.run():
         if t=="dns": results["dns"].append(r)
         elif t=="tcp": results["tcp"].append(r)
+        elif t=="https": results["https"].append(r)
         elif t=="quic": results["quic"].append(r)
+        elif t=="udp_range": results["udp_range"].append(r)
         elif t=="ping": results["ping"].append(r)
         elif t=="ntp": results["ntp"]=r
         elif t=="speedtest": results["speedtest"]=r
@@ -318,37 +334,58 @@ def status(jid):
         j=_jobs.get(jid,{})
     return jsonify({"progress": j.get("progress",0), "done": j.get("done", False), "results": j.get("results")})
 
-@app.route('/api/export/<format>')
-def export_results(format):
-    global test_results
-    if not test_results:
+def _export_results_from_payload(payload, format):
+    if not payload:
         return jsonify({"error": "No results to export"}), 400
-    
+
     try:
         outdir = "exports"
         ts = int(time.time())
-        
+
+        site_label = request.args.get("site_label")
+        if not site_label:
+            try:
+                body = request.get_json(silent=True) or {}
+                site_label = body.get("site_label")
+            except Exception:
+                site_label = None
+        if site_label:
+            payload.setdefault("_meta", {})["site_label"] = site_label
+
         if format == "csv":
-            path = export_csv(test_results, outdir, ts)
+            path = export_csv(payload, outdir, ts)
         elif format == "json":
-            path = export_json(test_results, outdir, ts)
+            path = export_json(payload, outdir, ts)
         elif format == "pdf":
-            path = export_pdf(test_results, outdir, ts)
+            path = export_pdf(payload, outdir, ts)
         else:
             return jsonify({"error": "Invalid format"}), 400
-        
-        # Auto-push to cloud if configured
+
         config = load_config()
         if config.get('cloud_push', {}).get('enabled', False):
-            push_to_cloud(test_results, os.path.basename(path), config['cloud_push'])
-        
-        # Auto-push to Databricks if configured
+            push_to_cloud(payload, os.path.basename(path), config['cloud_push'])
+
         if config.get('databricks', {}).get('enabled', False) and config.get('databricks', {}).get('auto_push', False):
-            push_to_databricks(test_results, config['databricks'])
-        
-        return jsonify({"success": True, "file": os.path.basename(path)})
+            push_to_databricks(payload, config['databricks'])
+
+        filename = os.path.basename(path)
+        return jsonify({"success": True, "file": filename, "filename": filename})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/export/<format>', methods=['GET', 'POST'])
+def export_results(format):
+    global test_results
+    return _export_results_from_payload(test_results, format)
+
+
+@app.route('/api/export/<format>/<jid>', methods=['GET', 'POST'])
+def export_results_job(format, jid):
+    with _lock:
+        j = _jobs.get(jid, {})
+        payload = j.get("results")
+    return _export_results_from_payload(payload, format)
 
 @app.route('/api/settings')
 def get_settings():
@@ -1053,4 +1090,5 @@ def clear_test_history():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001, host="0.0.0.0")
+    port = int(os.environ.get("PORT", "5001"))
+    app.run(debug=False, port=port, host="0.0.0.0", use_reloader=False)

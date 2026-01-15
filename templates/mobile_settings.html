@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Settings - Skydio Network Tester</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            overflow-x: hidden;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .container {
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 10px;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            padding: 12px 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            margin-bottom: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 10px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            touch-action: manipulation;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+
+        .btn-primary {
+            background: rgba(255,255,255,0.28);
+            color: #fff;
+        }
+
+        .card {
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .card h2 {
+            font-size: 14px;
+            margin-bottom: 10px;
+            opacity: 0.95;
+        }
+
+        .field {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            opacity: 0.9;
+            margin-bottom: 6px;
+        }
+
+        input[type="text"], select {
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.25);
+            background: rgba(0,0,0,0.2);
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input[type="checkbox"] {
+            transform: scale(1.4);
+            margin-right: 10px;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .toggle-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status {
+            margin-top: 8px;
+            font-size: 12px;
+            opacity: 0.9;
+        }
+
+        .status.ok { color: #4ade80; }
+        .status.err { color: #f87171; }
+
+        .footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 10px;
+            opacity: 0.7;
+        }
+
+        @media (max-height: 400px) {
+            .container { padding: 6px; }
+            .header { padding: 10px; margin-bottom: 10px; }
+            .card { padding: 10px; margin-bottom: 10px; }
+            .btn { padding: 10px 8px; font-size: 13px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙ Settings</h1>
+            <div class="row">
+                <button class="btn btn-secondary" onclick="window.location.href='/mobile'">← Back</button>
+                <button class="btn btn-primary" onclick="loadAll()">⟳ Refresh</button>
+            </div>
+            <div class="status" id="deviceLine">Loading device info…</div>
+        </div>
+
+        <div class="card">
+            <h2>Device</h2>
+
+            <div class="field">
+                <label for="hostname">Hostname</label>
+                <input type="text" id="hostname" placeholder="SkydioNT-XXXX" />
+            </div>
+
+            <div class="row">
+                <button class="btn btn-secondary" onclick="saveHostname()">Save Hostname</button>
+                <button class="btn btn-secondary" onclick="reboot()">Reboot</button>
+            </div>
+            <div class="status" id="hostnameStatus"></div>
+        </div>
+
+        <div class="card">
+            <h2>Test Behavior</h2>
+
+            <div class="field toggle">
+                <div class="toggle-left">
+                    <input type="checkbox" id="autoTestEnabled" />
+                    <label for="autoTestEnabled" style="margin:0">Auto Test Enabled</label>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="maxAutoTests">Max Auto Tests</label>
+                <select id="maxAutoTests">
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="5">5</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="testInterval">Test Interval (seconds)</label>
+                <select id="testInterval">
+                    <option value="60">60</option>
+                    <option value="120">120</option>
+                    <option value="300">300</option>
+                    <option value="600">600</option>
+                </select>
+            </div>
+
+            <button class="btn btn-secondary" style="width:100%" onclick="saveTestSettings()">Save Test Settings</button>
+            <div class="status" id="testStatus"></div>
+        </div>
+
+        <div class="card">
+            <h2>Export</h2>
+
+            <div class="field toggle">
+                <div class="toggle-left">
+                    <input type="checkbox" id="autoExportEnabled" />
+                    <label for="autoExportEnabled" style="margin:0">Auto Export Enabled</label>
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="autoExportFormat">Auto Export Format</label>
+                <select id="autoExportFormat">
+                    <option value="pdf">PDF</option>
+                    <option value="csv">CSV</option>
+                    <option value="json">JSON</option>
+                </select>
+            </div>
+
+            <button class="btn btn-secondary" style="width:100%" onclick="saveExportSettings()">Save Export Settings</button>
+            <div class="status" id="exportStatus"></div>
+        </div>
+
+        <div class="footer">
+            <div>Skydio Network Readiness Tester</div>
+            <div>Mobile Settings</div>
+        </div>
+    </div>
+
+    <script>
+        async function loadDeviceInfo() {
+            try {
+                const r = await fetch('/api/device-info');
+                const d = await r.json();
+                const line = `${d.hostname || 'Unknown'} • IP: ${d.private_ip || 'Unknown'} • CPU: ${d.cpu_usage ?? 'N/A'}% • Temp: ${d.temperature || 'N/A'}`;
+                document.getElementById('deviceLine').textContent = line;
+                const hostnameEl = document.getElementById('hostname');
+                if (hostnameEl && d.hostname) hostnameEl.value = d.hostname;
+            } catch (e) {
+                document.getElementById('deviceLine').textContent = 'Failed to load device info';
+            }
+        }
+
+        async function loadSettings() {
+            try {
+                const r = await fetch('/api/settings');
+                const s = await r.json();
+
+                document.getElementById('autoTestEnabled').checked = !!s.auto_test_enabled;
+                document.getElementById('maxAutoTests').value = String(s.max_auto_tests ?? 3);
+                document.getElementById('testInterval').value = String(s.test_interval_seconds ?? 300);
+
+                document.getElementById('autoExportEnabled').checked = !!s.auto_export_enabled;
+                document.getElementById('autoExportFormat').value = String(s.auto_export_format ?? 'pdf');
+            } catch (e) {
+                // leave UI as-is
+            }
+        }
+
+        async function saveHostname() {
+            const status = document.getElementById('hostnameStatus');
+            status.className = 'status';
+            status.textContent = 'Saving…';
+
+            const hostname = document.getElementById('hostname').value.trim();
+            if (!hostname) {
+                status.className = 'status err';
+                status.textContent = 'Hostname cannot be empty';
+                return;
+            }
+
+            try {
+                const r = await fetch('/api/system/hostname', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hostname })
+                });
+                const d = await r.json();
+                if (d.success) {
+                    status.className = 'status ok';
+                    status.textContent = 'Saved (reboot required)';
+                } else {
+                    status.className = 'status err';
+                    status.textContent = d.error || 'Failed to save hostname';
+                }
+            } catch (e) {
+                status.className = 'status err';
+                status.textContent = 'Failed to save hostname';
+            }
+        }
+
+        async function reboot() {
+            const ok = confirm('Reboot system now?');
+            if (!ok) return;
+            try {
+                await fetch('/api/system/reboot', { method: 'POST' });
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        async function saveTestSettings() {
+            const status = document.getElementById('testStatus');
+            status.className = 'status';
+            status.textContent = 'Saving…';
+
+            const payload = {
+                auto_test_enabled: document.getElementById('autoTestEnabled').checked,
+                max_auto_tests: parseInt(document.getElementById('maxAutoTests').value, 10),
+                test_interval_seconds: parseInt(document.getElementById('testInterval').value, 10),
+                targets: null
+            };
+
+            try {
+                const r = await fetch('/api/settings/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await r.json();
+                if (d.success) {
+                    status.className = 'status ok';
+                    status.textContent = 'Saved';
+                } else {
+                    status.className = 'status err';
+                    status.textContent = d.error || 'Failed to save';
+                }
+            } catch (e) {
+                status.className = 'status err';
+                status.textContent = 'Failed to save';
+            }
+        }
+
+        async function saveExportSettings() {
+            const status = document.getElementById('exportStatus');
+            status.className = 'status';
+            status.textContent = 'Saving…';
+
+            const payload = {
+                auto_export_enabled: document.getElementById('autoExportEnabled').checked,
+                auto_export_format: document.getElementById('autoExportFormat').value,
+                webhook_enabled: false,
+                webhook_url: '',
+                webhook_auth: '',
+                ftp_enabled: false,
+                ftp_config: {}
+            };
+
+            try {
+                const r = await fetch('/api/settings/export', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const d = await r.json();
+                if (d.success) {
+                    status.className = 'status ok';
+                    status.textContent = 'Saved';
+                } else {
+                    status.className = 'status err';
+                    status.textContent = d.error || 'Failed to save';
+                }
+            } catch (e) {
+                status.className = 'status err';
+                status.textContent = 'Failed to save';
+            }
+        }
+
+        async function loadAll() {
+            await loadDeviceInfo();
+            await loadSettings();
+        }
+
+        loadAll();
+    </script>
+</body>
+</html>

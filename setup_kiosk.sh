@@ -33,6 +33,8 @@ apt-get install -y \
     x11-xserver-utils \
     xinit \
     openbox \
+    accountsservice \
+    lightdm-gtk-greeter \
     lightdm
 
 echo ""
@@ -47,6 +49,33 @@ autologin-user-timeout=0
 user-session=openbox
 autologin-session=openbox
 EOF
+
+if [ -f /etc/lightdm/lightdm.conf ]; then
+    if ! grep -q "user-session=openbox" /etc/lightdm/lightdm.conf || ! grep -q "greeter-session=lightdm-gtk-greeter" /etc/lightdm/lightdm.conf; then
+        cp -a /etc/lightdm/lightdm.conf "/etc/lightdm/lightdm.conf.skydio-backup.$(date +%Y%m%d-%H%M%S)" || true
+        cat >> /etc/lightdm/lightdm.conf << EOF
+
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+user-session=openbox
+autologin-user=$ACTUAL_USER
+autologin-user-timeout=0
+autologin-session=openbox
+EOF
+    fi
+fi
+
+mkdir -p /usr/share/xsessions
+if [ ! -f /usr/share/xsessions/openbox.desktop ]; then
+cat > /usr/share/xsessions/openbox.desktop << 'EOF'
+[Desktop Entry]
+Name=Openbox
+Comment=Openbox session
+Exec=openbox-session
+TryExec=openbox-session
+Type=Application
+EOF
+fi
 
 echo ""
 echo "Creating kiosk startup script..."

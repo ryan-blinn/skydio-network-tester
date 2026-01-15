@@ -11,6 +11,7 @@ import requests
 import netifaces
 import subprocess
 import threading
+import sys
 from datetime import datetime
 import socket
 import netifaces
@@ -103,6 +104,9 @@ class AutoNetworkTester:
         except Exception as e:
             print(f"Error getting network state: {e}")
             return None
+
+    def run_network_test(self):
+        return self.run_tests()
     
     def network_changed(self, current_state):
         """Check if network configuration has changed"""
@@ -285,12 +289,15 @@ class AutoNetworkTester:
                 print(f"Error in monitoring loop: {e}")
                 time.sleep(30)  # Wait before retrying
 
+    def monitor_network(self):
+        return self.start()
+
 def main():
     """Main entry point"""
     import argparse
     
     parser = argparse.ArgumentParser(description='Automatic Network Tester for Raspberry Pi')
-    parser.add_argument('--config', default='auto_tester_config.json', 
+    parser.add_argument('--config', default='config.json', 
                        help='Configuration file path')
     parser.add_argument('--single-test', action='store_true',
                        help='Run a single test and exit')
