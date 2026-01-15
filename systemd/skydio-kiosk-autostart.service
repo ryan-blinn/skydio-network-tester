@@ -1,0 +1,12 @@
+[Unit]
+Description=Skydio Kiosk AutoStart (3.5in Display Detect)
+After=systemd-udev-settle.service
+Wants=systemd-udev-settle.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/skydio-kiosk-autostart
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

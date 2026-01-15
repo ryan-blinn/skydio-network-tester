@@ -175,6 +175,22 @@ echo "Enabling services..."
 systemctl enable lightdm
 
 echo ""
+echo "Setting up automatic kiosk start on 3.5 inch display..."
+
+if [ -f "$INSTALL_DIR/scripts/skydio-kiosk-autostart.sh" ] && [ -f "$INSTALL_DIR/systemd/skydio-kiosk-autostart.service" ]; then
+    cp -f "$INSTALL_DIR/scripts/skydio-kiosk-autostart.sh" /usr/local/bin/skydio-kiosk-autostart
+    chmod +x /usr/local/bin/skydio-kiosk-autostart
+
+    cp -f "$INSTALL_DIR/systemd/skydio-kiosk-autostart.service" /etc/systemd/system/skydio-kiosk-autostart.service
+    systemctl daemon-reload
+    systemctl enable skydio-kiosk-autostart.service
+
+    systemctl enable skydio-network-tester.service || true
+else
+    echo "Warning: kiosk autostart files not found in repo; skipping auto-detect boot setup"
+fi
+
+echo ""
 echo "=========================================="
 echo "Kiosk Mode Setup Complete!"
 echo "=========================================="
