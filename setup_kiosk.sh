@@ -49,6 +49,9 @@ EOF
 echo ""
 echo "Creating kiosk startup script..."
 
+# Create openbox config directory if it doesn't exist
+mkdir -p $USER_HOME/.config/openbox
+
 # Create kiosk startup script
 cat > $USER_HOME/.config/openbox/autostart << 'EOF'
 #!/bin/bash
@@ -85,8 +88,6 @@ chromium-browser \
 wait
 EOF
 
-# Create openbox config directory if it doesn't exist
-mkdir -p $USER_HOME/.config/openbox
 chown -R $ACTUAL_USER:$ACTUAL_USER $USER_HOME/.config/openbox
 chmod +x $USER_HOME/.config/openbox/autostart
 
