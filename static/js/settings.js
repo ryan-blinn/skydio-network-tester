@@ -1,6 +1,78 @@
 class SettingsManager {
     constructor() {
+        this.adminToken = this.getStoredAdminToken();
         this.init();
+    }
+
+    getStoredAdminToken() {
+        try {
+            return localStorage.getItem('skydio_admin_token') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    setStoredAdminToken(token) {
+        this.adminToken = token || '';
+        try {
+            if (this.adminToken) {
+                localStorage.setItem('skydio_admin_token', this.adminToken);
+            } else {
+                localStorage.removeItem('skydio_admin_token');
+            }
+        } catch (e) {
+        }
+    }
+
+    _jsonHeaders() {
+        const headers = { 'Content-Type': 'application/json' };
+        if (this.adminToken) {
+            headers['X-Admin-Token'] = this.adminToken;
+        }
+        return headers;
+    }
+
+    async _postJsonWithAdminRetry(url, payload, successMessage) {
+        const body = JSON.stringify(payload || {});
+
+        let response = await fetch(url, {
+            method: 'POST',
+            headers: this._jsonHeaders(),
+            body
+        });
+
+        if (response.status === 403) {
+            let err = 'Remote changes require admin token';
+            try {
+                const data = await response.json();
+                if (data && data.error) err = data.error;
+            } catch (e) {
+            }
+
+            const entered = prompt(`${err}\n\nEnter admin token to allow remote changes:`, this.adminToken || '');
+            if (entered) {
+                this.setStoredAdminToken(entered);
+                response = await fetch(url, {
+                    method: 'POST',
+                    headers: this._jsonHeaders(),
+                    body
+                });
+            }
+        }
+
+        if (response.ok) {
+            if (successMessage) this.showNotification(successMessage, 'success');
+            return true;
+        }
+
+        let msg = 'Request failed';
+        try {
+            const data = await response.json();
+            if (data && data.error) msg = data.error;
+        } catch (e) {
+        }
+        this.showNotification(msg, 'error');
+        return false;
     }
 
     init() {
@@ -237,6 +309,29 @@ class SettingsManager {
         if (webPortEl && settings.web_port) {
             webPortEl.value = settings.web_port;
         }
+
+        const webAuthEnabledEl = document.getElementById('web-auth-enabled');
+        if (webAuthEnabledEl) {
+            webAuthEnabledEl.checked = settings.web_auth_enabled || false;
+        }
+        const webUsernameEl = document.getElementById('web-username');
+        if (webUsernameEl) {
+            webUsernameEl.value = settings.web_username || '';
+        }
+        const webPasswordEl = document.getElementById('web-password');
+        if (webPasswordEl) {
+            webPasswordEl.value = settings.web_password || '';
+        }
+
+        const authConfig = document.getElementById('auth-config');
+        if (authConfig && webAuthEnabledEl) {
+            authConfig.style.display = webAuthEnabledEl.checked ? 'block' : 'none';
+        }
+
+        const apiEnabledEl = document.getElementById('api-enabled');
+        if (apiEnabledEl) {
+            apiEnabledEl.checked = settings.api_enabled || false;
+        }
         const apiKeyEl = document.getElementById('api-key');
         if (apiKeyEl && settings.api_key) {
             apiKeyEl.value = settings.api_key;
@@ -421,23 +516,7 @@ class SettingsManager {
                 tcp: this.getTcpTargets()
             }
         };
-
-        try {
-            const response = await fetch('/api/settings/test', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            });
-
-            if (response.ok) {
-                this.showNotification('Test configuration saved successfully', 'success');
-            } else {
-                throw new Error('Failed to save configuration');
-            }
-        } catch (error) {
-            this.showNotification('Failed to save test configuration', 'error');
-            console.error(error);
-        }
+        await this._postJsonWithAdminRetry('/api/settings/test', config, 'Test configuration saved successfully');
     }
 
     getTcpTargets() {
@@ -470,22 +549,7 @@ class SettingsManager {
             }
         };
 
-        try {
-            const response = await fetch('/api/settings/export', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            });
-
-            if (response.ok) {
-                this.showNotification('Export configuration saved successfully', 'success');
-            } else {
-                throw new Error('Failed to save configuration');
-            }
-        } catch (error) {
-            this.showNotification('Failed to save export configuration', 'error');
-            console.error(error);
-        }
+        await this._postJsonWithAdminRetry('/api/settings/export', config, 'Export configuration saved successfully');
     }
 
     async saveNetworkConfig() {
@@ -504,22 +568,7 @@ class SettingsManager {
             }
         };
 
-        try {
-            const response = await fetch('/api/settings/network', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            });
-
-            if (response.ok) {
-                this.showNotification('Network configuration saved successfully. Reboot required.', 'success');
-            } else {
-                throw new Error('Failed to save configuration');
-            }
-        } catch (error) {
-            this.showNotification('Failed to save network configuration', 'error');
-            console.error(error);
-        }
+        await this._postJsonWithAdminRetry('/api/settings/network', config, 'Network configuration saved successfully. Reboot required.');
     }
 
     async saveDatabricksConfig() {
@@ -533,22 +582,7 @@ class SettingsManager {
             auto_push: document.getElementById('databricks-auto-push').checked
         };
 
-        try {
-            const response = await fetch('/api/settings/databricks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(config)
-            });
-
-            if (response.ok) {
-                this.showNotification('Databricks configuration saved successfully', 'success');
-            } else {
-                throw new Error('Failed to save configuration');
-            }
-        } catch (error) {
-            this.showNotification('Failed to save Databricks configuration', 'error');
-            console.error(error);
-        }
+        await this._postJsonWithAdminRetry('/api/settings/databricks', config, 'Databricks configuration saved successfully');
     }
 
     async testDatabricksConnection() {
@@ -605,33 +639,41 @@ class SettingsManager {
         const hostname = document.getElementById('hostname').value.trim();
         if (!hostname) return;
 
-        try {
-            const response = await fetch('/api/system/hostname', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ hostname })
-            });
-
-            if (response.ok) {
-                this.showNotification('Hostname updated successfully. Reboot required.', 'success');
-            } else {
-                throw new Error('Failed to update hostname');
-            }
-        } catch (error) {
-            this.showNotification('Failed to update hostname', 'error');
-            console.error(error);
-        }
+        await this._postJsonWithAdminRetry('/api/system/hostname', { hostname }, 'Hostname updated successfully. Reboot required.');
     }
 
     async rebootSystem() {
         if (!confirm('Are you sure you want to reboot the system?')) return;
-
-        try {
-            await fetch('/api/system/reboot', { method: 'POST' });
+        const ok = await this._postJsonWithAdminRetry('/api/system/reboot', {}, 'System will reboot soon');
+        if (ok) {
             this.showNotification('System is rebooting...', 'info');
-        } catch (error) {
-            console.error('Reboot request failed:', error);
         }
+    }
+
+    generateApiKey() {
+        const alphabet = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let out = '';
+        for (let i = 0; i < 32; i++) {
+            out += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+        }
+        const apiKeyEl = document.getElementById('api-key');
+        if (apiKeyEl) {
+            apiKeyEl.value = out;
+        }
+        this.showNotification('Generated API key (click Save API Configuration)', 'success');
+    }
+
+    async saveApiConfig() {
+        const config = {
+            web_port: parseInt(document.getElementById('web-port').value, 10),
+            web_auth_enabled: document.getElementById('web-auth-enabled').checked,
+            web_username: (document.getElementById('web-username')?.value || '').trim(),
+            web_password: (document.getElementById('web-password')?.value || '').trim(),
+            api_enabled: document.getElementById('api-enabled')?.checked || false,
+            api_key: (document.getElementById('api-key')?.value || '').trim()
+        };
+
+        await this._postJsonWithAdminRetry('/api/settings/api', config, 'API configuration saved successfully');
     }
 
     async testWebhook() {
@@ -753,8 +795,7 @@ function generateApiKey() {
 }
 
 function saveApiConfig() {
-    // Implementation for API config save
-    console.log('Save API config');
+    window.settingsManager.saveApiConfig();
 }
 
 function saveDatabricksConfig() {

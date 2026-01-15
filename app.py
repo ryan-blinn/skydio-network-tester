@@ -1,4 +1,5 @@
 import os, time, json, threading, queue, socket
+from functools import wraps
 from flask import Flask, render_template, jsonify, request, send_file
 import socket
 from network_tests import StepRunner
@@ -18,6 +19,39 @@ HISTORY_DIR = os.path.join(APP_ROOT, "test_history")
 app = Flask(__name__, template_folder=TEMPLATES, static_folder=STATIC)
 _jobs = {}
 _lock = threading.Lock()
+
+
+def _client_ip():
+    xf = request.headers.get('X-Forwarded-For', '').split(',')[0].strip()
+    return xf or (request.remote_addr or '')
+
+
+def _is_local_request():
+    ip = _client_ip()
+    return ip in ('127.0.0.1', '::1')
+
+
+def _admin_token():
+    config = load_config()
+    return os.environ.get('SKYDIO_ADMIN_TOKEN') or config.get('admin_token')
+
+
+def require_admin_for_remote(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        token = _admin_token()
+        if not token:
+            return fn(*args, **kwargs)
+        if _is_local_request():
+            return fn(*args, **kwargs)
+
+        provided = request.headers.get('X-Admin-Token') or request.args.get('admin_token')
+        if provided == token:
+            return fn(*args, **kwargs)
+
+        return jsonify({'error': 'Remote changes require admin token'}), 403
+
+    return wrapper
 
 # Ensure history directory exists
 if not os.path.exists(HISTORY_DIR):
@@ -399,7 +433,13 @@ def get_settings():
         'auto_export_format': 'pdf',
         'webhook_enabled': False,
         'webhook_url': '',
+        'webhook_auth': '',
         'web_port': 5001,
+        'web_auth_enabled': False,
+        'web_username': 'admin',
+        'web_password': '',
+        'api_enabled': False,
+        'api_key': '',
         'cloud_push': {
             'enabled': False,
             'api_url': '',
@@ -438,13 +478,17 @@ def get_settings():
                 for key, value in default_settings.items():
                     if key not in settings:
                         settings[key] = value
+                settings['remote_write_requires_token'] = bool(_admin_token())
                 return jsonify(settings)
         else:
+            default_settings['remote_write_requires_token'] = bool(_admin_token())
             return jsonify(default_settings)
     except Exception as e:
+        default_settings['remote_write_requires_token'] = bool(_admin_token())
         return jsonify(default_settings)
 
 @app.route('/api/settings/test', methods=['POST'])
+@require_admin_for_remote
 def save_test_settings():
     """Save test configuration settings"""
     try:
@@ -473,7 +517,38 @@ def save_test_settings():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+
+@app.route('/api/settings/api', methods=['POST'])
+@require_admin_for_remote
+def save_api_settings():
+    """Save web interface + API access configuration settings"""
+    try:
+        data = request.get_json() or {}
+        config_file = 'config.json'
+
+        existing_config = {}
+        if os.path.exists(config_file):
+            with open(config_file, 'r') as f:
+                existing_config = json.load(f)
+
+        existing_config.update({
+            'web_port': int(data.get('web_port', existing_config.get('web_port', 5001) or 5001)),
+            'web_auth_enabled': bool(data.get('web_auth_enabled', False)),
+            'web_username': data.get('web_username', existing_config.get('web_username', 'admin') or 'admin'),
+            'web_password': data.get('web_password', existing_config.get('web_password', '')),
+            'api_enabled': bool(data.get('api_enabled', False)),
+            'api_key': data.get('api_key', existing_config.get('api_key', '')),
+        })
+
+        with open(config_file, 'w') as f:
+            json.dump(existing_config, f, indent=2)
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/settings/export', methods=['POST'])
+@require_admin_for_remote
 def save_export_settings():
     """Save export configuration settings"""
     try:
@@ -537,6 +612,7 @@ def get_system_status():
         })
 
 @app.route('/api/system/hostname', methods=['POST'])
+@require_admin_for_remote
 def update_hostname():
     """Update system hostname"""
     try:
@@ -556,6 +632,7 @@ def update_hostname():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/system/reboot', methods=['POST'])
+@require_admin_for_remote
 def reboot_system():
     """Reboot the system"""
     try:
@@ -596,6 +673,7 @@ def test_webhook():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/settings/network', methods=['POST'])
+@require_admin_for_remote
 def save_network_settings():
     """Save network configuration settings"""
     try:
@@ -646,6 +724,7 @@ def backup_config():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/restore-config', methods=['POST'])
+@require_admin_for_remote
 def restore_config():
     """Restore configuration from backup"""
     try:
@@ -670,6 +749,7 @@ def restore_config():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/system/factory-reset', methods=['POST'])
+@require_admin_for_remote
 def factory_reset():
     """Factory reset the system"""
     try:
@@ -876,6 +956,7 @@ def manual_databricks_push():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/settings/databricks', methods=['POST'])
+@require_admin_for_remote
 def save_databricks_settings():
     """Save Databricks configuration settings"""
     try:
