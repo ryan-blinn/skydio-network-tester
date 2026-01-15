@@ -41,9 +41,73 @@ mkdir -p exports
 sudo cp systemd/skydio-network-tester.service /etc/systemd/system/
 
 # Set up one-time hostname configuration (runs as root at boot)
-sudo cp systemd/skydio-network-tester-set-hostname.sh /usr/local/sbin/skydio-network-tester-set-hostname
-sudo chmod +x /usr/local/sbin/skydio-network-tester-set-hostname
-sudo cp systemd/skydio-network-tester-hostname.service /etc/systemd/system/
+if [ -f systemd/skydio-network-tester-set-hostname.sh ] && [ -f systemd/skydio-network-tester-hostname.service ]; then
+  sudo cp systemd/skydio-network-tester-set-hostname.sh /usr/local/sbin/skydio-network-tester-set-hostname
+  sudo chmod +x /usr/local/sbin/skydio-network-tester-set-hostname
+  sudo cp systemd/skydio-network-tester-hostname.service /etc/systemd/system/
+else
+  sudo tee /usr/local/sbin/skydio-network-tester-set-hostname >/dev/null << 'EOF'
+#!/bin/bash
+
+set -e
+
+read_mac() {
+  local iface="$1"
+  local p="/sys/class/net/${iface}/address"
+  if [ -r "$p" ]; then
+    local mac
+    mac="$(cat "$p" | tr -d '\n' | tr '[:upper:]' '[:lower:]' || true)"
+    if [ -n "$mac" ] && [ "$mac" != "00:00:00:00:00:00" ]; then
+      echo "$mac"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+mac=""
+mac="$(read_mac eth0 || true)"
+if [ -z "$mac" ]; then
+  mac="$(read_mac wlan0 || true)"
+fi
+
+hex="$(echo "$mac" | tr -d ':' | tr -cd '0-9a-f')"
+suffix="${hex: -4}"
+if [ -z "$suffix" ]; then
+  suffix="0000"
+fi
+
+new_name="SkydioNT-${suffix^^}"
+
+hostnamectl set-hostname "$new_name" || true
+
+if [ -f /etc/hosts ]; then
+  if grep -qE '^127\.0\.1\.1\s+' /etc/hosts; then
+    sed -i "s/^127\\.0\\.1\\.1\\s\+.*/127.0.1.1\t${new_name}/" /etc/hosts
+  else
+    echo -e "127.0.1.1\t${new_name}" >> /etc/hosts
+  fi
+fi
+
+EOF
+
+  sudo chmod +x /usr/local/sbin/skydio-network-tester-set-hostname
+
+  sudo tee /etc/systemd/system/skydio-network-tester-hostname.service >/dev/null << 'EOF'
+[Unit]
+Description=Skydio Network Tester - One-time Hostname Configuration
+After=network-pre.target
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/skydio-network-tester-set-hostname
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+fi
 
 sudo systemctl daemon-reload
 sudo systemctl enable skydio-network-tester.service
