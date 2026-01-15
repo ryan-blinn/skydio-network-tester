@@ -123,6 +123,21 @@ install_goodtft_mhs35_driver() {
   sudo apt update -y
   sudo apt install -y git
 
+  if [ -d /boot/firmware ]; then
+    if [ -f /boot/firmware/config.txt ]; then
+      ts="$(date +%Y%m%d-%H%M%S)"
+      sudo cp -a /boot/firmware/config.txt "/boot/firmware/config.txt.skydio-backup.${ts}" || true
+    fi
+
+    if [ ! -e /boot/config.txt ] && [ -f /boot/firmware/config.txt ]; then
+      sudo ln -s /boot/firmware/config.txt /boot/config.txt
+    fi
+
+    if [ ! -e /boot/overlays ] && [ -d /boot/firmware/overlays ]; then
+      sudo ln -s /boot/firmware/overlays /boot/overlays
+    fi
+  fi
+
   sudo rm -rf /tmp/LCD-show
   git clone https://github.com/goodtft/LCD-show.git /tmp/LCD-show
   sudo chmod -R 755 /tmp/LCD-show

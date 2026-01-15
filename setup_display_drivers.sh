@@ -104,6 +104,21 @@ EOF
         apt-get update
         apt-get install -y git
 
+        if [ -d /boot/firmware ]; then
+            if [ -f /boot/firmware/config.txt ]; then
+                ts="$(date +%Y%m%d-%H%M%S)"
+                cp -a /boot/firmware/config.txt "/boot/firmware/config.txt.skydio-backup.${ts}" || true
+            fi
+
+            if [ ! -e /boot/config.txt ] && [ -f /boot/firmware/config.txt ]; then
+                ln -s /boot/firmware/config.txt /boot/config.txt
+            fi
+
+            if [ ! -e /boot/overlays ] && [ -d /boot/firmware/overlays ]; then
+                ln -s /boot/firmware/overlays /boot/overlays
+            fi
+        fi
+
         cd /tmp
         if [ -d "LCD-show" ]; then
             rm -rf LCD-show
