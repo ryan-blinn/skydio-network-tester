@@ -1,0 +1,54 @@
+{
+  "auto_test_enabled": false,
+  "max_auto_tests": 3,
+  "test_interval_seconds": 300,
+  "auto_export_enabled": true,
+  "auto_export_format": "pdf",
+  "webhook_enabled": false,
+  "webhook_url": "",
+  "webhook_auth": "",
+  "api_base_url": "http://localhost:5001",
+  "network_check_interval": 10,
+  "exports_dir": "./exports",
+  "targets": {
+    "dns": [
+      "cloud.skydio.com",
+      "time.skydio.com",
+      "google.com",
+      "u-blox.com"
+    ],
+    "tcp": [
+      {
+        "host": "cloud.skydio.com",
+        "port": 443,
+        "label": "Skydio Cloud HTTPS"
+      },
+      {
+        "host": "cloud.skydio.com",
+        "port": 322,
+        "label": "WebRTC TCP 322"
+      },
+      {
+        "host": "cloud.skydio.com",
+        "port": 7881,
+        "label": "WebRTC TCP 7881"
+      },
+      {
+        "host": "www.google.com",
+        "port": 443,
+        "label": "Generic HTTPS"
+      },
+      {
+        "host": "time.skydio.com",
+        "port": 123,
+        "label": "Skydio NTP"
+      }
+    ],
+    "ping": [
+      "8.8.8.8",
+      "1.1.1.1",
+      "cloud.skydio.com"
+    ],
+    "ntp": "time.skydio.com"
+  }
+}

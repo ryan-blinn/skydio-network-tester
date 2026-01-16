@@ -21,12 +21,10 @@ echo "  2. Waveshare 3.5\" RPi LCD (B) - 480x320"
 echo "  3. Waveshare 3.5\" RPi LCD (C) - 480x320"
 echo "  4. Generic 3.5\" SPI TFT - 480x320"
 echo "  5. HDMI 3.5\" Display - 480x320"
-echo "  6. GoodTFT MHS-3.5\" RPi Display (MHS35-show)"
-echo "  7. GoodTFT MHS-3.5\" RPi Display-B (MHS35B-show)"
-echo "  8. Skip driver installation (already configured)"
+echo "  6. Skip driver installation (already configured)"
 echo ""
 
-read -p "Select your display type (1-8): " DISPLAY_TYPE
+read -p "Select your display type (1-6): " DISPLAY_TYPE
 
 case $DISPLAY_TYPE in
     1|2|3|4)
@@ -97,36 +95,7 @@ EOF
         echo "Please reboot to apply changes: sudo reboot"
         ;;
         
-    6|7)
-        echo ""
-        echo "Installing GoodTFT LCD-show drivers..."
-
-        apt-get update
-        apt-get install -y git
-
-        cd /tmp
-        if [ -d "LCD-show" ]; then
-            rm -rf LCD-show
-        fi
-
-        git clone https://github.com/goodtft/LCD-show.git
-        cd LCD-show
-        chmod -R 755 .
-
-        if [ "$DISPLAY_TYPE" -eq 6 ]; then
-            echo "Installing GoodTFT MHS-3.5\" driver..."
-            ./MHS35-show
-        else
-            echo "Installing GoodTFT MHS-3.5\"-B driver..."
-            ./MHS35B-show
-        fi
-
-        echo ""
-        echo "Driver installation complete!"
-        echo "The system will reboot to apply changes."
-        ;;
-
-    8)
+    6)
         echo ""
         echo "Skipping driver installation."
         echo "Assuming display is already configured."

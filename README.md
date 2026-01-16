@@ -38,10 +38,6 @@ A comprehensive network testing tool for validating Skydio Dock network requirem
 ### Option A: Standard Installation (Web UI)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ryan-blinn/skydio-network-tester/main/scripts/bootstrap_pi.sh | bash
-```
-
-```bash
 cd ~/skydio-network-tester
 chmod +x install_raspberry_pi.sh
 ./install_raspberry_pi.sh
@@ -74,8 +70,6 @@ sudo reboot
 ```
 
 **See [QUICK_START_KIOSK.md](QUICK_START_KIOSK.md) for detailed kiosk setup.**
-
-Note: If you are using a GoodTFT MHS 3.5\" screen with the `goodtft/LCD-show` drivers (e.g. `MHS35-show`), Raspberry Pi OS **Bullseye (Legacy) 32-bit** is commonly the most reliable.
 
 ## Usage
 

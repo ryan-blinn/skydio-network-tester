@@ -7,7 +7,7 @@ Simple installation instructions for end users.
 SSH into your Raspberry Pi and run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ryan-blinn/skydio-network-tester/main/scripts/bootstrap_pi.sh | bash
+curl -sSL https://raw.githubusercontent.com/YOUR_ORG/skydio-network-tester/main/quick_install.sh | bash
 ```
 
 **That's it!** The installer will:
@@ -22,16 +22,6 @@ curl -fsSL https://raw.githubusercontent.com/ryan-blinn/skydio-network-tester/ma
 - Raspberry Pi OS installed
 - Internet connection
 - SSH access (or keyboard/monitor)
-
-### 3.5\" LCD (GoodTFT MHS35) Compatibility
-
-If you are using the GoodTFT `LCD-show` driver installer (e.g. `MHS35-show`), it is most reliable on:
-
-- Raspberry Pi OS **Bullseye (Legacy)**
-- **32-bit** (armhf)
-
-Raspberry Pi OS **Bookworm** and/or **64-bit (arm64)** installations are commonly reported to have issues with `LCD-show`.
-The one-line installer will offer to install the MHS35 driver, but you should choose Bullseye/32-bit for best results.
 
 ## After Installation
 
