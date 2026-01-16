@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety & Security - Skydio Network Readiness Tester</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=2.1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .security-container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+        .card { background: #fff; border-radius: 16px; box-shadow: var(--shadow); padding: 18px 20px; margin-top: 16px; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .item { background: var(--skydio-light-gray); border-radius: 12px; padding: 12px; }
+        .item .label { font-size: 12px; color: var(--skydio-dark-gray); opacity: 0.85; }
+        .item .value { font-weight: 700; color: var(--skydio-dark-blue); margin-top: 4px; word-break: break-word; }
+        .list { margin-top: 10px; display: grid; gap: 8px; }
+        .row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 12px; background: #FAFBFC; border: 1px solid #E9ECEF; border-radius: 12px; }
+        .row .left { font-weight: 600; color: var(--skydio-dark-gray); }
+        .row .right { font-family: 'Monaco','Menlo',monospace; font-size: 12px; color: #495057; text-align: right; }
+        .pill { display:inline-flex; align-items:center; gap:6px; font-size:12px; padding:6px 10px; border-radius:999px; font-weight:700; }
+        .pill.pass { background: rgba(0, 200, 83, 0.12); color: #00a344; }
+        .pill.warn { background: rgba(255, 136, 0, 0.14); color: #b85e00; }
+        .pill.fail { background: rgba(255, 68, 68, 0.12); color: #cc1b1b; }
+        @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="brand-lockup">
+                        <img src="{{ url_for('static', filename='images/skydio-mark.png') }}" alt="Skydio" class="skydio-mark-logo">
+                        <img src="{{ url_for('static', filename='images/skydio-logo-white.svg') }}" alt="Skydio" class="skydio-logo">
+                    </div>
+                    <h1><i class="fas fa-shield-halved"></i> Safety &amp; Security</h1>
+                </div>
+                <div class="header-controls">
+                    <div class="device-info">
+                        <span><img class="device-info-icon" src="{{ url_for('static', filename='images/skydio-mark.png') }}" alt="Skydio"> <span id="private-ip">Loading...</span></span>
+                        <span><i class="fas fa-globe"></i> <span id="public-ip">Loading...</span></span>
+                    </div>
+                    <button class="back-btn" onclick="window.location.href='/'">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="security-container">
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
+                    <div>
+                        <h3 style="margin:0 0 4px 0;">Device Safety Summary</h3>
+                        <div style="color:#666;">This tester is designed for outbound network validation and local administration.</div>
+                    </div>
+                    <div id="overall-pill" class="pill warn"><i class="fas fa-circle-info"></i> Loading</div>
+                </div>
+                <div class="grid" style="margin-top: 12px;">
+                    <div class="item"><div class="label">Local-only controls</div><div class="value" id="local-only">Loading...</div></div>
+                    <div class="item"><div class="label">Inbound ports required</div><div class="value">None (outbound-only)</div></div>
+                    <div class="item"><div class="label">Software</div><div class="value" id="software">Loading...</div></div>
+                    <div class="item"><div class="label">Platform</div><div class="value" id="platform">Loading...</div></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 8px 0;">Proxy & TLS Inspection Signals</h3>
+                <div class="grid">
+                    <div class="item"><div class="label">Proxy configured</div><div class="value" id="proxy">Loading...</div></div>
+                    <div class="item"><div class="label">TLS inspection suspected</div><div class="value" id="tls-inspection">Loading...</div></div>
+                </div>
+                <div class="list" id="tls-details"></div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 8px 0;">Listening Services (on the tester)</h3>
+                <div style="color:#666;">This is what is listening locally. You can use this to confirm the device is not running unexpected services.</div>
+                <div class="list" id="listeners"></div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin:0 0 8px 0;">Outbound Destinations (this tester may contact)</h3>
+                <div style="color:#666;">Derived from the configured Skydio readiness targets and service checks.</div>
+                <div class="list" id="outbound"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/security.js') }}?v=2.1"></script>
+</body>
+</html>

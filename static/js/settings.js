@@ -6,9 +6,42 @@ class SettingsManager {
     init() {
         // Setup event listeners immediately since DOM should be ready
         this.setupEventListeners();
+        this.checkLocalAccess();
         this.loadDeviceInfo();
         this.loadCurrentSettings();
         this.loadSystemStatus();
+    }
+
+    async checkLocalAccess() {
+        try {
+            const response = await fetch('/api/access');
+            const data = await response.json();
+            const isLocal = !!data.is_local;
+            const allowRemoteAdmin = !!data.allow_remote_admin;
+            const hasAdminAccess = isLocal || allowRemoteAdmin;
+
+            const warning = document.getElementById('local-access-warning');
+            if (warning) {
+                warning.style.display = hasAdminAccess ? 'none' : 'block';
+            }
+
+            const localOnly = document.querySelectorAll('[data-local-only="true"]');
+            localOnly.forEach(el => {
+                if (!hasAdminAccess) {
+                    el.setAttribute('disabled', 'disabled');
+                    el.style.opacity = '0.55';
+                    el.style.cursor = 'not-allowed';
+                    el.title = 'Local-only control. Open Settings on the device screen (localhost).';
+                } else {
+                    el.removeAttribute('disabled');
+                    el.style.opacity = '';
+                    el.style.cursor = '';
+                    el.title = '';
+                }
+            });
+        } catch (e) {
+            console.error('Failed to check local access:', e);
+        }
     }
     
     setupEventListeners() {
@@ -43,8 +76,8 @@ class SettingsManager {
         // Interface tabs
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const interface = e.currentTarget.dataset.interface;
-                this.showInterface(interface);
+                const iface = e.currentTarget.dataset.interface;
+                this.showInterface(iface);
             });
         });
 
@@ -183,6 +216,7 @@ class SettingsManager {
     populateDeviceInfo(deviceInfo) {
         // Populate device information fields
         const fields = {
+            'device-id': deviceInfo.device_id,
             'device-hostname': deviceInfo.hostname,
             'device-platform': deviceInfo.platform,
             'device-architecture': deviceInfo.architecture,
@@ -203,6 +237,11 @@ class SettingsManager {
         if (document.getElementById('hostname')) {
             document.getElementById('hostname').value = settings.hostname || '';
         }
+
+        const allowRemoteAdminEl = document.getElementById('allow-remote-admin');
+        if (allowRemoteAdminEl) {
+            allowRemoteAdminEl.checked = !!settings.allow_remote_admin;
+        }
         
         // Test settings
         if (document.getElementById('auto-test-enabled')) {
@@ -219,8 +258,9 @@ class SettingsManager {
         if (document.getElementById('auto-export-enabled')) {
             document.getElementById('auto-export-enabled').checked = settings.auto_export_enabled || false;
         }
-        if (document.getElementById('export-format')) {
-            document.getElementById('export-format').value = settings.auto_export_format || 'pdf';
+        const exportFormatEl = document.getElementById('auto-export-format');
+        if (exportFormatEl) {
+            exportFormatEl.value = settings.auto_export_format || 'pdf';
         }
         if (document.getElementById('webhook-enabled')) {
             document.getElementById('webhook-enabled').checked = settings.webhook_enabled || false;
@@ -368,6 +408,11 @@ class SettingsManager {
             activePanel.style.display = 'block';
             console.log('✓ Showing panel:', `${sectionName}-panel`);
             
+            // Load network status when network panel is shown
+            if (sectionName === 'network') {
+                this.loadNetworkStatus();
+            }
+            
             // Scroll to top smoothly
             setTimeout(() => {
                 activePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -504,6 +549,11 @@ class SettingsManager {
             }
         };
 
+        if (!config.wlan0.ssid) {
+            this.showNotification('Please enter a WiFi network name (SSID)', 'error');
+            return;
+        }
+
         try {
             const response = await fetch('/api/settings/network', {
                 method: 'POST',
@@ -511,14 +561,116 @@ class SettingsManager {
                 body: JSON.stringify(config)
             });
 
+            const data = await response.json();
+
             if (response.ok) {
-                this.showNotification('Network configuration saved successfully. Reboot required.', 'success');
+                this.showNotification(data.message || 'Successfully connected to WiFi network', 'success');
+                // Refresh current WiFi status
+                setTimeout(() => this.loadCurrentWiFi(), 2000);
             } else {
-                throw new Error('Failed to save configuration');
+                this.showNotification('Failed to connect: ' + (data.error || 'Unknown error'), 'error');
             }
         } catch (error) {
-            this.showNotification('Failed to save network configuration', 'error');
+            this.showNotification('Failed to save network configuration: ' + error.message, 'error');
             console.error(error);
+        }
+    }
+
+    async scanWiFiNetworks() {
+        try {
+            this.showNotification('Scanning for WiFi networks...', 'info');
+            
+            const response = await fetch('/api/wifi/scan');
+            const data = await response.json();
+
+            if (response.ok && data.networks) {
+                this.displayWiFiNetworks(data.networks);
+                this.showNotification(`Found ${data.networks.length} networks`, 'success');
+            } else {
+                this.showNotification('Failed to scan networks: ' + (data.error || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            this.showNotification('WiFi scan failed: ' + error.message, 'error');
+            console.error(error);
+        }
+    }
+
+    displayWiFiNetworks(networks) {
+        const container = document.getElementById('wifi-networks-list');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (networks.length === 0) {
+            container.innerHTML = '<p style="color: #666;">No networks found</p>';
+            return;
+        }
+
+        networks.forEach(network => {
+            const div = document.createElement('div');
+            div.className = 'wifi-network-item';
+            div.innerHTML = `
+                <div class="wifi-network-info">
+                    <i class="fas fa-${network.secured ? 'lock' : 'wifi'}"></i>
+                    <span class="wifi-ssid">${network.ssid}</span>
+                    <span class="wifi-signal">${this.getSignalBars(network.signal)}</span>
+                </div>
+                <button class="btn-secondary btn-small" onclick="window.settingsManager.selectWiFiNetwork('${network.ssid}', ${network.secured})">
+                    Connect
+                </button>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    getSignalBars(signal) {
+        if (signal >= 75) return '▂▄▆█';
+        if (signal >= 50) return '▂▄▆';
+        if (signal >= 25) return '▂▄';
+        return '▂';
+    }
+
+    selectWiFiNetwork(ssid, secured) {
+        const ssidInput = document.getElementById('wifi-ssid');
+        const passwordInput = document.getElementById('wifi-password');
+        
+        if (ssidInput) ssidInput.value = ssid;
+        if (passwordInput) {
+            passwordInput.value = '';
+            if (secured) {
+                passwordInput.focus();
+            }
+        }
+
+        // Scroll to the form
+        const wifiConfig = document.getElementById('wlan0-config');
+        if (wifiConfig) {
+            wifiConfig.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    async loadCurrentWiFi() {
+        try {
+            const response = await fetch('/api/wifi/current');
+            const data = await response.json();
+
+            const statusEl = document.getElementById('wifi-status');
+            if (statusEl) {
+                if (data.connected) {
+                    statusEl.innerHTML = `
+                        <i class="fas fa-wifi" style="color: #00c853;"></i>
+                        Connected to: <strong>${data.ssid}</strong> 
+                        (Signal: ${this.getSignalBars(data.signal)})
+                    `;
+                } else {
+                    statusEl.innerHTML = `
+                        <i class="fas fa-wifi-slash" style="color: #999;"></i>
+                        Not connected to WiFi
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load current WiFi:', error);
         }
     }
 
@@ -642,7 +794,11 @@ class SettingsManager {
         }
         
         try {
-            const response = await fetch('/api/webhook/test', { method: 'POST' });
+            const response = await fetch('/api/webhook/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
             const data = await response.json();
             
             if (data.success) {
@@ -677,7 +833,7 @@ class SettingsManager {
         }
         
         try {
-            const response = await fetch('/api/factory-reset', { method: 'POST' });
+            const response = await fetch('/api/system/factory-reset', { method: 'POST' });
             const data = await response.json();
             
             if (data.success) {
@@ -707,6 +863,280 @@ class SettingsManager {
         setTimeout(() => {
             notification.remove();
         }, 3000);
+    }
+
+    generateApiKey() {
+        const apiKeyEl = document.getElementById('api-key');
+        if (!apiKeyEl) return;
+
+        // Simple random key; stored in config.json via saveApiConfig()
+        const bytes = new Uint8Array(24);
+        window.crypto.getRandomValues(bytes);
+        const key = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        apiKeyEl.value = key;
+        this.showNotification('API key generated (click Save API Configuration)', 'success');
+    }
+
+    async saveApiConfig() {
+        try {
+            const payload = {
+                api_enabled: !!document.getElementById('api-enabled')?.checked,
+                api_key: document.getElementById('api-key')?.value?.trim() || '',
+                web_port: parseInt(document.getElementById('web-port')?.value || '5001', 10),
+                web_auth_enabled: !!document.getElementById('web-auth-enabled')?.checked,
+                web_username: document.getElementById('web-username')?.value?.trim() || '',
+                web_password: document.getElementById('web-password')?.value?.trim() || '',
+                allow_remote_admin: !!document.getElementById('allow-remote-admin')?.checked
+            };
+
+            const response = await fetch('/api/settings/api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                this.showNotification(data.message || 'API settings saved', 'success');
+            } else {
+                this.showNotification(data.error || 'Failed to save API settings', 'error');
+            }
+        } catch (e) {
+            this.showNotification('Failed to save API settings: ' + e.message, 'error');
+        }
+    }
+
+    async testCloudConnection() {
+        try {
+            const apiUrl = document.getElementById('cloud-api-url')?.value?.trim() || '';
+            const apiKey = document.getElementById('cloud-api-key')?.value?.trim() || '';
+            if (!apiUrl) {
+                this.showNotification('Please enter a Cloud API URL first', 'error');
+                return;
+            }
+
+            const response = await fetch('/api/cloud/test-direct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_url: apiUrl, api_key: apiKey })
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                this.showNotification(`Cloud test OK (${data.status_code})`, 'success');
+            } else {
+                this.showNotification('Cloud test failed: ' + (data.error || data.response || 'Unknown error'), 'error');
+            }
+        } catch (e) {
+            this.showNotification('Cloud test failed: ' + e.message, 'error');
+        }
+    }
+
+    async updateSystem() {
+        try {
+            const response = await fetch('/api/system/update', { method: 'POST' });
+            const data = await response.json();
+            this.showNotification(data.message || 'System update not available', response.ok ? 'info' : 'error');
+        } catch (e) {
+            this.showNotification('System update failed: ' + e.message, 'error');
+        }
+    }
+
+    async loadNetworkStatus() {
+        try {
+            const response = await fetch('/api/network/status');
+            const data = await response.json();
+
+            const setText = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value ?? 'N/A';
+            };
+
+            setText('net-hostname', data.hostname || 'N/A');
+            setText('net-private-ip', data.private_ip || 'N/A');
+            setText('net-public-ip', data.public_ip || 'N/A');
+
+            const conn = data.connection_type ? `${data.connection_type}${data.active_interface ? ` (${data.active_interface})` : ''}` : (data.active_interface || 'N/A');
+            setText('net-connection', conn);
+            setText('net-gateway', data.gateway || 'N/A');
+            setText('net-dns', (data.dns_servers && data.dns_servers.length) ? data.dns_servers.join(', ') : 'N/A');
+
+            // Also keep the existing WiFi status banner updated
+            await this.loadCurrentWiFi();
+
+            // Load interface-specific detected details
+            await this.loadInterfaceDetails();
+        } catch (error) {
+            console.error('Failed to load network status:', error);
+            const statusEl = document.getElementById('wifi-status');
+            if (statusEl) {
+                statusEl.innerHTML = `<i class="fas fa-exclamation-triangle" style="color:#f44336;"></i> Failed to load network status`;
+            }
+        }
+    }
+
+    async loadInterfaceDetails() {
+        try {
+            const response = await fetch('/api/network/interfaces');
+            const data = await response.json();
+
+            const setText = (id, value) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = value ?? 'N/A';
+            };
+
+            const applyDetails = (ifname, d) => {
+                if (!d) return;
+
+                setText(`${ifname}-state`, d.state || 'N/A');
+                setText(`${ifname}-connection`, d.active_connection || d.connection || 'N/A');
+                if (ifname === 'eth0') {
+                    setText('eth0-mac', d.mac || 'N/A');
+                    setText('eth0-mtu', d.mtu ?? 'N/A');
+                }
+
+                const ipv4 = d.ipv4_address ? `${d.ipv4_address}${d.ipv4_prefix !== null && d.ipv4_prefix !== undefined ? `/${d.ipv4_prefix}` : ''}` : 'N/A';
+                setText(`${ifname}-ipv4`, ipv4);
+                setText(`${ifname}-gw`, d.ipv4_gateway || 'N/A');
+                setText(`${ifname}-dns-detected`, (d.dns_servers && d.dns_servers.length) ? d.dns_servers.join(', ') : 'N/A');
+                setText(`${ifname}-method`, d.ipv4_method || 'N/A');
+
+                if (ifname === 'wlan0') {
+                    const ssid = d.wifi?.connected ? d.wifi.ssid : 'Not connected';
+                    setText('wlan0-ssid', ssid);
+                    setText('wlan0-signal', d.wifi?.connected ? this.getSignalBars(d.wifi.signal || 0) : 'N/A');
+                }
+
+                // Populate form defaults to current settings (best-effort)
+                const modeEl = document.getElementById(`${ifname}-mode`);
+                if (modeEl) {
+                    const method = (d.ipv4_method || '').toLowerCase();
+                    modeEl.value = method === 'manual' ? 'static' : 'dhcp';
+                }
+                if (ifname === 'eth0') {
+                    const ipEl = document.getElementById('eth0-ip');
+                    const nmEl = document.getElementById('eth0-netmask');
+                    const gwEl = document.getElementById('eth0-gateway');
+                    const dnsEl = document.getElementById('eth0-dns');
+                    if (ipEl && d.ipv4_address) ipEl.value = d.ipv4_address;
+                    if (nmEl && d.ipv4_netmask) nmEl.value = d.ipv4_netmask;
+                    if (gwEl && d.ipv4_gateway) gwEl.value = d.ipv4_gateway;
+                    if (dnsEl && d.dns_servers) dnsEl.value = d.dns_servers.join(', ');
+                }
+                if (ifname === 'wlan0') {
+                    const ipEl = document.getElementById('wlan0-ip');
+                    const nmEl = document.getElementById('wlan0-netmask');
+                    const gwEl = document.getElementById('wlan0-gateway');
+                    const dnsEl = document.getElementById('wlan0-dns');
+                    if (ipEl && d.ipv4_address) ipEl.value = d.ipv4_address;
+                    if (nmEl && d.ipv4_netmask) nmEl.value = d.ipv4_netmask;
+                    if (gwEl && d.ipv4_gateway) gwEl.value = d.ipv4_gateway;
+                    if (dnsEl && d.dns_servers) dnsEl.value = d.dns_servers.join(', ');
+                }
+
+                toggleNetworkMode(ifname);
+            };
+
+            applyDetails('eth0', data.eth0);
+            applyDetails('wlan0', data.wlan0);
+        } catch (e) {
+            console.error('Failed to load interface details:', e);
+        }
+    }
+
+    async applyInterfaceConfig(ifname) {
+        try {
+            const mode = document.getElementById(`${ifname}-mode`)?.value || 'dhcp';
+            let payload = { mode };
+
+            if (mode === 'static') {
+                const ip = document.getElementById(`${ifname}-ip`)?.value?.trim() || '';
+                const netmask = document.getElementById(`${ifname}-netmask`)?.value?.trim() || '';
+                const gateway = document.getElementById(`${ifname}-gateway`)?.value?.trim() || '';
+                const dns = document.getElementById(`${ifname}-dns`)?.value?.trim() || '';
+                payload = { mode, ip, netmask, gateway, dns };
+            }
+
+            const response = await fetch(`/api/network/interface/${encodeURIComponent(ifname)}/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                this.showNotification(data.message || 'Applied network settings', 'success');
+                setTimeout(() => this.loadNetworkStatus(), 2000);
+            } else {
+                this.showNotification(data.error || 'Failed to apply settings', 'error');
+            }
+        } catch (e) {
+            this.showNotification('Failed to apply settings: ' + e.message, 'error');
+        }
+    }
+
+    async disconnectWiFi() {
+        try {
+            const response = await fetch('/api/wifi/disconnect', { method: 'POST' });
+            const data = await response.json();
+            if (response.ok && data.success) {
+                this.showNotification(data.message || 'Disconnected', 'success');
+                setTimeout(() => this.loadNetworkStatus(), 1500);
+            } else {
+                this.showNotification(data.error || 'Failed to disconnect', 'error');
+            }
+        } catch (e) {
+            this.showNotification('Failed to disconnect: ' + e.message, 'error');
+        }
+    }
+
+    async loadSavedWiFiNetworks() {
+        try {
+            const container = document.getElementById('wifi-saved-list');
+            if (!container) return;
+
+            const response = await fetch('/api/wifi/saved');
+            const data = await response.json();
+
+            container.style.display = 'block';
+            container.innerHTML = '';
+
+            const networks = data.networks || [];
+            if (networks.length === 0) {
+                container.innerHTML = '<p style="color:#666; text-align:center;">No saved WiFi networks</p>';
+                return;
+            }
+
+            networks.forEach(n => {
+                const div = document.createElement('div');
+                div.className = 'wifi-network-item';
+                div.innerHTML = `
+                    <div class="wifi-network-info">
+                        <i class="fas fa-wifi"></i>
+                        <span class="wifi-ssid">${n.name}</span>
+                    </div>
+                    <button class="btn-secondary btn-small" onclick="forgetWiFiNetwork('${n.name.replace(/'/g, "\\'")}')">Forget</button>
+                `;
+                container.appendChild(div);
+            });
+        } catch (e) {
+            this.showNotification('Failed to load saved networks: ' + e.message, 'error');
+        }
+    }
+
+    async forgetWiFiNetwork(name) {
+        try {
+            const response = await fetch(`/api/wifi/forget/${encodeURIComponent(name)}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (response.ok && data.success) {
+                this.showNotification(data.message || 'Forgot network', 'success');
+                this.loadSavedWiFiNetworks();
+            } else {
+                this.showNotification(data.error || 'Failed to forget network', 'error');
+            }
+        } catch (e) {
+            this.showNotification('Failed to forget network: ' + e.message, 'error');
+        }
     }
 }
 
@@ -744,6 +1174,18 @@ function saveNetworkConfig() {
     window.settingsManager.saveNetworkConfig();
 }
 
+function disconnectWiFi() {
+    window.settingsManager.disconnectWiFi();
+}
+
+function loadSavedWiFiNetworks() {
+    window.settingsManager.loadSavedWiFiNetworks();
+}
+
+function forgetWiFiNetwork(name) {
+    window.settingsManager.forgetWiFiNetwork(name);
+}
+
 function testWebhook() {
     window.settingsManager.testWebhook();
 }
@@ -753,8 +1195,7 @@ function generateApiKey() {
 }
 
 function saveApiConfig() {
-    // Implementation for API config save
-    console.log('Save API config');
+    window.settingsManager.saveApiConfig();
 }
 
 function saveDatabricksConfig() {
@@ -770,13 +1211,15 @@ function pushToDatabricks() {
 }
 
 function testCloudConnection() {
-    // Implementation for cloud connection test
-    console.log('Test cloud connection');
+    window.settingsManager.testCloudConnection();
 }
 
 function updateSystem() {
-    // Implementation for system update
-    console.log('Update system');
+    window.settingsManager.updateSystem();
+}
+
+function applyInterfaceConfig(ifname) {
+    window.settingsManager.applyInterfaceConfig(ifname);
 }
 
 function viewLogs() {
@@ -784,10 +1227,32 @@ function viewLogs() {
     window.open('/api/logs', '_blank');
 }
 
-function factoryReset() {
-    if (confirm('Are you sure you want to factory reset? This cannot be undone.')) {
-        fetch('/api/system/factory-reset', { method: 'POST' });
+function downloadLogs() {
+    if (window.settingsManager && typeof window.settingsManager.downloadLogs === 'function') {
+        window.settingsManager.downloadLogs();
+        return;
     }
+
+    fetch('/api/logs/download', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.filename) {
+                window.location.href = `/download/${data.filename}`;
+            }
+        });
+}
+
+function factoryReset() {
+    if (window.settingsManager && typeof window.settingsManager.factoryReset === 'function') {
+        window.settingsManager.factoryReset();
+        return;
+    }
+
+    if (!confirm('Are you sure you want to factory reset? This cannot be undone.')) {
+        return;
+    }
+
+    fetch('/api/system/factory-reset', { method: 'POST' });
 }
 
 function backupConfig() {

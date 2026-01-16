@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WiFi Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        #results { margin-top: 20px; padding: 20px; background: #f0f0f0; }
+        .network { padding: 10px; margin: 5px; background: white; border: 1px solid #ccc; }
+    </style>
+</head>
+<body>
+    <h1>WiFi Configuration Test</h1>
+    
+    <button onclick="testCurrentWiFi()">Test Current WiFi</button>
+    <button onclick="testScanWiFi()">Test Scan WiFi</button>
+    <button onclick="testConnect()">Test Connect</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        async function testCurrentWiFi() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing current WiFi...';
+            
+            try {
+                const response = await fetch('/api/wifi/current');
+                const data = await response.json();
+                results.innerHTML = '<h3>Current WiFi:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+        
+        async function testScanWiFi() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Scanning WiFi networks...';
+            
+            try {
+                const response = await fetch('/api/wifi/scan');
+                const data = await response.json();
+                
+                if (data.networks) {
+                    let html = '<h3>Found ' + data.networks.length + ' networks:</h3>';
+                    data.networks.forEach(network => {
+                        html += '<div class="network">';
+                        html += '<strong>' + network.ssid + '</strong><br>';
+                        html += 'Signal: ' + network.signal + '%<br>';
+                        html += 'Security: ' + network.security + '<br>';
+                        html += '</div>';
+                    });
+                    results.innerHTML = html;
+                } else {
+                    results.innerHTML = '<h3>Response:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                }
+            } catch (error) {
+                results.innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+        
+        async function testConnect() {
+            const ssid = prompt('Enter WiFi SSID:');
+            const password = prompt('Enter WiFi Password:');
+            
+            if (!ssid) return;
+            
+            const results = document.getElementById('results');
+            results.innerHTML = 'Connecting to ' + ssid + '...';
+            
+            try {
+                const response = await fetch('/api/settings/network', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        wlan0: { ssid: ssid, password: password }
+                    })
+                });
+                
+                const data = await response.json();
+                results.innerHTML = '<h3>Result:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML = '<h3>Error:</h3>' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

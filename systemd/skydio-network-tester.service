@@ -1,5 +1,5 @@
 [Unit]
-Description=Skydio Network Readiness Tester
+Description=Skydio Network Readiness Tester Web UI
 After=network.target
 Wants=network.target
 
@@ -9,9 +9,8 @@ User=pi
 Group=pi
 WorkingDirectory=/home/pi/skydio-network-tester
 Environment=PATH=/home/pi/skydio-network-tester/.venv/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/home/pi/skydio-network-tester/.venv/bin/python3 /home/pi/skydio-network-tester/app.py
-ExecStartPost=/bin/sleep 5
-ExecStartPost=/home/pi/skydio-network-tester/.venv/bin/python3 /home/pi/skydio-network-tester/auto_network_tester.py --daemon
+Environment=FLASK_APP=app.py
+ExecStart=/home/pi/skydio-network-tester/.venv/bin/python3 app.py
 Restart=always
 RestartSec=10
 StandardOutput=journal

@@ -37,6 +37,26 @@
             margin-bottom: 15px;
             backdrop-filter: blur(10px);
         }
+
+        .skydio-mark {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .skydio-mark .skydio-mark-logo {
+            height: 18px;
+            width: auto;
+            opacity: 0.95;
+        }
+
+        .skydio-mark .skydio-wordmark {
+            height: 18px;
+            width: auto;
+            opacity: 0.95;
+        }
         
         .header h1 {
             font-size: 20px;
@@ -190,11 +210,20 @@
             background: rgba(0,0,0,0.2);
             padding: 8px;
             border-radius: 6px;
-            margin-bottom: 5px;
-            font-size: 11px;
+            margin-bottom: 6px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        .test-item.fail {
+            background: rgba(244, 67, 54, 0.22);
+            border-left: 4px solid rgba(244, 67, 54, 0.7);
+        }
+
+        .test-item.warn {
+            background: rgba(255, 152, 0, 0.22);
+            border-left: 4px solid rgba(255, 152, 0, 0.7);
         }
         
         .test-item:last-child {
@@ -292,7 +321,11 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🛰️ Skydio Network Tester</h1>
+            <div class="skydio-mark">
+                <img class="skydio-mark-logo" src="{{ url_for('static', filename='images/skydio-mark.png') }}" alt="Skydio">
+                <img class="skydio-wordmark" src="{{ url_for('static', filename='images/skydio-logo-white.svg') }}" alt="Skydio">
+            </div>
+            <h1>Skydio Network Tester</h1>
             <div class="device-info" id="deviceInfo">
                 <div id="hostname">Loading...</div>
                 <div id="ipAddress">IP: ---.---.---.---</div>
@@ -409,10 +442,10 @@
         function updateProgress(data) {
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
-            
-            const percent = data.total_steps > 0 ? (data.current_step / data.total_steps * 100) : 0;
+
+            const percent = typeof data.progress === 'number' ? data.progress : 0;
             progressFill.style.width = `${percent}%`;
-            progressText.innerHTML = `<span class="loading-spinner"></span>Testing... ${data.current_step}/${data.total_steps}`;
+            progressText.innerHTML = `<span class="loading-spinner"></span>Testing... ${percent}%`;
         }
         
         function displayResults(results) {
@@ -424,10 +457,12 @@
             // Count statuses
             Object.keys(results).forEach(category => {
                 if (category === '_meta') return;
-                results[category].forEach(test => {
-                    if (test.status === 'PASS') passCount++;
-                    else if (test.status === 'WARN') warnCount++;
-                    else if (test.status === 'FAIL') failCount++;
+                const v = results[category];
+                const tests = Array.isArray(v) ? v : (v ? [v] : []);
+                tests.forEach(test => {
+                    if (test?.status === 'PASS') passCount++;
+                    else if (test?.status === 'WARN') warnCount++;
+                    else if (test?.status === 'FAIL') failCount++;
                 });
             });
             
@@ -444,7 +479,6 @@
                 'tcp': 'TCP Connectivity',
                 'https': 'HTTPS Validation',
                 'quic': 'QUIC Protocol',
-                'udp_range': 'UDP Port Ranges',
                 'ping': 'Network Latency',
                 'ntp': 'Time Sync',
                 'speedtest': 'Bandwidth'
@@ -453,7 +487,8 @@
             Object.keys(results).forEach(category => {
                 if (category === '_meta') return;
                 
-                const tests = results[category];
+                const v = results[category];
+                const tests = Array.isArray(v) ? v : (v ? [v] : []);
                 const categoryLabel = categoryLabels[category] || category.toUpperCase();
                 
                 html += `<div class="test-category">
@@ -464,10 +499,11 @@
                 
                 tests.forEach(test => {
                     const statusClass = `status-badge-${test.status.toLowerCase()}`;
+                    const itemClass = test.status ? test.status.toLowerCase() : '';
                     const label = test.label || test.target || 'Test';
                     const latency = test.latency_ms ? `<span class="latency-info">${test.latency_ms}ms</span>` : '';
                     
-                    html += `<div class="test-item">
+                    html += `<div class="test-item ${itemClass}">
                         <div class="test-label">${label}</div>
                         <div>
                             <span class="test-status ${statusClass}">${test.status}</span>

@@ -86,7 +86,7 @@ function renderHistory(filteredData = null) {
                         <i class="fas fa-network-wired"></i> Network Test - ${entry.datetime}
                     </div>
                     <div class="history-item-meta">
-                        <span><i class="fab fa-raspberry-pi"></i> ${entry.private_ip || entry.device_name}</span>
+                        <span><img class="device-info-icon" src="/static/images/skydio-mark.png" alt="Skydio"> ${entry.private_ip || entry.device_name}</span>
                         <span><i class="fas fa-globe"></i> ${entry.public_ip}</span>
                         <span><i class="fas fa-clock"></i> ${formatRelativeTime(entry.timestamp)}</span>
                     </div>
@@ -184,14 +184,14 @@ function showDetailsModal(data) {
             <div class="test-section">
                 <h3><i class="fas fa-search"></i> DNS Resolution</h3>
                 ${results.dns.map(test => `
-                    <div class="test-result-item">
+                    <div class="test-result-item ${test.status ? test.status.toLowerCase() : ''}">
                         <div class="test-result-header">
                             <div class="test-result-name">${test.target}</div>
                             <span class="status-badge ${test.status.toLowerCase()}">${test.status}</span>
                         </div>
                         <div class="test-result-details">
-                            ${test.resolved ? `<div><strong>Resolved:</strong> ${test.resolved}</div>` : ''}
-                            ${test.latency_ms ? `<div><strong>Latency:</strong> ${test.latency_ms.toFixed(2)} ms</div>` : ''}
+                            ${test.ip ? `<div><strong>Resolved:</strong> ${test.ip}</div>` : ''}
+                            ${test.latency_ms !== undefined ? `<div><strong>Latency:</strong> ${test.latency_ms} ms</div>` : ''}
                             ${test.error ? `<div style="color: #f44336;"><strong>Error:</strong> ${test.error}</div>` : ''}
                         </div>
                     </div>
@@ -206,14 +206,14 @@ function showDetailsModal(data) {
             <div class="test-section">
                 <h3><i class="fas fa-plug"></i> TCP Connectivity</h3>
                 ${results.tcp.map(test => `
-                    <div class="test-result-item">
+                    <div class="test-result-item ${test.status ? test.status.toLowerCase() : ''}">
                         <div class="test-result-header">
                             <div class="test-result-name">${test.label || `${test.host}:${test.port}`}</div>
                             <span class="status-badge ${test.status.toLowerCase()}">${test.status}</span>
                         </div>
                         <div class="test-result-details">
-                            <div><strong>Host:</strong> ${test.host}:${test.port}</div>
-                            ${test.latency_ms ? `<div><strong>Latency:</strong> ${test.latency_ms.toFixed(2)} ms</div>` : ''}
+                            <div><strong>Target:</strong> ${test.target || ''}</div>
+                            ${test.latency_ms !== undefined ? `<div><strong>Latency:</strong> ${test.latency_ms} ms</div>` : ''}
                             ${test.error ? `<div style="color: #f44336;"><strong>Error:</strong> ${test.error}</div>` : ''}
                         </div>
                     </div>
@@ -228,7 +228,7 @@ function showDetailsModal(data) {
             <div class="test-section">
                 <h3><i class="fas fa-bolt"></i> QUIC Protocol</h3>
                 ${results.quic.map(test => `
-                    <div class="test-result-item">
+                    <div class="test-result-item ${test.status ? test.status.toLowerCase() : ''}">
                         <div class="test-result-header">
                             <div class="test-result-name">${test.label || `${test.host}:${test.port}`}</div>
                             <span class="status-badge ${test.status.toLowerCase()}">${test.status}</span>
@@ -249,7 +249,7 @@ function showDetailsModal(data) {
             <div class="test-section">
                 <h3><i class="fas fa-satellite-dish"></i> Ping Tests</h3>
                 ${results.ping.map(test => `
-                    <div class="test-result-item">
+                    <div class="test-result-item ${test.status ? test.status.toLowerCase() : ''}">
                         <div class="test-result-header">
                             <div class="test-result-name">${test.target}</div>
                             <span class="status-badge ${test.status.toLowerCase()}">${test.status}</span>
@@ -272,13 +272,13 @@ function showDetailsModal(data) {
         html += `
             <div class="test-section">
                 <h3><i class="fas fa-clock"></i> Time Synchronization</h3>
-                <div class="test-result-item">
+                <div class="test-result-item ${results.ntp.status ? results.ntp.status.toLowerCase() : ''}">
                     <div class="test-result-header">
-                        <div class="test-result-name">${results.ntp.server}</div>
+                        <div class="test-result-name">${results.ntp.target || 'NTP'}</div>
                         <span class="status-badge ${results.ntp.status.toLowerCase()}">${results.ntp.status}</span>
                     </div>
                     <div class="test-result-details">
-                        ${results.ntp.offset_ms ? `<div><strong>Offset:</strong> ${results.ntp.offset_ms.toFixed(2)} ms</div>` : ''}
+                        ${results.ntp.offset_ms !== undefined ? `<div><strong>Offset:</strong> ${results.ntp.offset_ms} ms</div>` : ''}
                         ${results.ntp.error ? `<div style="color: #f44336;"><strong>Error:</strong> ${results.ntp.error}</div>` : ''}
                     </div>
                 </div>
@@ -291,14 +291,14 @@ function showDetailsModal(data) {
         html += `
             <div class="test-section">
                 <h3><i class="fas fa-tachometer-alt"></i> Speed Test</h3>
-                <div class="test-result-item">
+                <div class="test-result-item ${results.speedtest.status ? results.speedtest.status.toLowerCase() : ''}">
                     <div class="test-result-header">
                         <div class="test-result-name">Bandwidth Test</div>
                         <span class="status-badge ${results.speedtest.status.toLowerCase()}">${results.speedtest.status}</span>
                     </div>
                     <div class="test-result-details">
-                        ${results.speedtest.download_mbps ? `<div><strong>Download:</strong> ${results.speedtest.download_mbps.toFixed(2)} Mbps</div>` : ''}
-                        ${results.speedtest.upload_mbps ? `<div><strong>Upload:</strong> ${results.speedtest.upload_mbps.toFixed(2)} Mbps</div>` : ''}
+                        ${results.speedtest.download_mbps !== undefined ? `<div><strong>Download:</strong> ${results.speedtest.download_mbps} Mbps</div>` : ''}
+                        ${results.speedtest.upload_mbps !== undefined ? `<div><strong>Upload:</strong> ${results.speedtest.upload_mbps} Mbps</div>` : ''}
                         ${results.speedtest.error ? `<div style="color: #f44336;"><strong>Error:</strong> ${results.speedtest.error}</div>` : ''}
                     </div>
                 </div>

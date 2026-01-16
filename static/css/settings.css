@@ -32,6 +32,10 @@
     margin-top: 20px;
 }
 
+.settings-content {
+    align-items: flex-start;
+}
+
 .settings-nav {
     width: 280px;
     background: var(--white);
@@ -39,6 +43,7 @@
     padding: 20px 0;
     box-shadow: var(--shadow);
     height: fit-content;
+    border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .nav-item {
@@ -52,6 +57,12 @@
     font-weight: 500;
     user-select: none;
     border-left: 3px solid transparent;
+}
+
+.nav-item span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
 }
 
 .nav-item:hover {
@@ -84,6 +95,7 @@
     box-shadow: var(--shadow);
     min-height: 600px;
     position: relative;
+    border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .settings-panel {
@@ -113,12 +125,17 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    letter-spacing: -0.01em;
 }
 
 .setting-group {
     margin-bottom: 40px;
     padding-bottom: 30px;
     border-bottom: 1px solid var(--skydio-light-gray);
+}
+
+.setting-group {
+    padding-top: 6px;
 }
 
 .setting-group:last-child {
@@ -163,6 +180,7 @@
     border-radius: 8px;
     font-size: 14px;
     transition: border-color 0.3s ease;
+    background: rgba(255, 255, 255, 0.9);
 }
 
 .setting-item input:focus,
@@ -170,6 +188,7 @@
 .setting-item textarea:focus {
     outline: none;
     border-color: var(--skydio-blue);
+    box-shadow: 0 0 0 3px rgba(0, 102, 255, 0.10);
 }
 
 .setting-item small {
@@ -330,6 +349,20 @@
     font-size: 14px;
 }
 
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-warning:hover:not(:disabled),
+.btn-danger:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+button[disabled],
+input[disabled],
+select[disabled],
+textarea[disabled] {
+    cursor: not-allowed;
+}
+
 .btn-primary {
     background: var(--skydio-blue);
     color: var(--white);
@@ -450,7 +483,7 @@
     color: rgba(255, 255, 255, 0.8);
 }
 
-.beta-notice {
+.access-notice {
     background: #fff3cd;
     border: 1px solid #ffc107;
     border-radius: 8px;
@@ -462,8 +495,71 @@
     color: #856404;
 }
 
-.beta-notice i {
+.access-notice i {
     color: #ffc107;
+}
+
+.advanced-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 12px;
+}
+
+.advanced-card {
+    background: var(--white);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+}
+
+.advanced-card-header {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+}
+
+.advanced-card-header i {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--skydio-light-blue);
+    color: var(--skydio-blue);
+    flex: 0 0 36px;
+}
+
+.advanced-card-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--skydio-dark-gray);
+}
+
+.advanced-card-header p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--skydio-gray);
+    line-height: 1.35;
+}
+
+.advanced-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.advanced-card-danger {
+    border-color: rgba(231, 76, 60, 0.25);
+}
+
+.advanced-card-danger .advanced-card-header i {
+    background: rgba(231, 76, 60, 0.12);
+    color: var(--skydio-red);
 }
 
 /* Info Grid */
@@ -577,4 +673,101 @@
 .info-list li strong {
     color: var(--skydio-dark-blue);
     font-weight: 600;
+}
+
+/* WiFi Network Configuration Styles */
+.wifi-status-display {
+    background: var(--skydio-light-gray);
+    border-radius: 8px;
+    padding: 1rem;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.network-status-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.network-status-item {
+    background: var(--skydio-light-gray);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.network-status-item label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--skydio-dark-gray);
+    margin-bottom: 0.25rem;
+}
+
+.network-status-item div {
+    font-weight: 600;
+    color: var(--skydio-dark-blue);
+    word-break: break-word;
+}
+
+@media (max-width: 768px) {
+    .network-status-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.wifi-networks-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--skydio-light-gray);
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+
+.wifi-network-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    background: var(--white);
+    border: 1px solid var(--skydio-light-gray);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.wifi-network-item:hover {
+    border-color: var(--skydio-blue);
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+}
+
+.wifi-network-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.wifi-network-info i {
+    color: var(--skydio-blue);
+    font-size: 1.1rem;
+}
+
+.wifi-ssid {
+    font-weight: 500;
+    color: var(--skydio-dark-blue);
+}
+
+.wifi-signal {
+    color: var(--skydio-dark-gray);
+    font-family: monospace;
+    font-size: 0.9rem;
+    margin-left: auto;
+    padding-right: 1rem;
+}
+
+.btn-small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
 }

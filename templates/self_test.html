@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Self Test - Skydio Network Tester</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=2.1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .selftest-container { max-width: 900px; margin: 0 auto; padding: 24px; }
+        .card { background: #fff; border-radius: 16px; box-shadow: var(--shadow); padding: 20px; margin-top: 16px; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+        .item { background: var(--skydio-light-gray); border-radius: 10px; padding: 12px; }
+        .item .label { font-size: 12px; color: var(--skydio-dark-gray); }
+        .item .value { font-weight: 700; color: var(--skydio-dark-blue); margin-top: 4px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="brand-lockup">
+                        <img src="{{ url_for('static', filename='images/skydio-mark.png') }}" alt="Skydio" class="skydio-mark-logo">
+                        <img src="{{ url_for('static', filename='images/skydio-logo-white.svg') }}" alt="Skydio" class="skydio-logo">
+                    </div>
+                    <h1><i class="fas fa-stethoscope"></i> Self Test</h1>
+                </div>
+                <div class="header-controls">
+                    <button class="back-btn" onclick="window.location.href='/'">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="selftest-container">
+            <div class="card">
+                <button class="btn btn-primary" id="run">Run Self Test</button>
+                <div id="overall" style="margin-top: 12px; font-weight: 700;"></div>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: 10px;">Subsystem Checks</h3>
+                <div class="grid" id="checks">
+                    <div class="item"><div class="label">Status</div><div class="value">Run self test</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const elOverall = document.getElementById('overall');
+        const elChecks = document.getElementById('checks');
+        document.getElementById('run').addEventListener('click', async () => {
+            elOverall.textContent = 'Running...';
+            try {
+                const r = await fetch('/api/self-test');
+                const data = await r.json();
+                const ok = !!data.ok;
+                elOverall.textContent = ok ? 'PASS: Core subsystems look healthy' : 'FAIL: One or more subsystems failed';
+                elOverall.style.color = ok ? '#00c853' : '#f44336';
+
+                const checks = data.checks || {};
+                elChecks.innerHTML = '';
+                Object.keys(checks).forEach(k => {
+                    const v = !!checks[k];
+                    const div = document.createElement('div');
+                    div.className = 'item';
+                    div.innerHTML = `<div class="label">${k}</div><div class="value" style="color:${v ? '#00c853' : '#f44336'}">${v ? 'PASS' : 'FAIL'}</div>`;
+                    elChecks.appendChild(div);
+                });
+            } catch (e) {
+                elOverall.textContent = 'ERROR: ' + e.message;
+                elOverall.style.color = '#f44336';
+            }
+        });
+    </script>
+</body>
+</html>

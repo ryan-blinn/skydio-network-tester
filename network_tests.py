@@ -1,8 +1,40 @@
 import socket, subprocess, time, requests, os, json, random
+from concurrent.futures import ThreadPoolExecutor
 import asyncio
 import ssl
 import struct
 from urllib.parse import urlparse
+
+
+def _expand_dns_targets(targets):
+    expanded = []
+    for t in (targets or []):
+        name = (t or '').strip()
+        if not name:
+            continue
+
+        if name.startswith('*.') and len(name) > 2:
+            base = name[2:]
+            candidates = [
+                f"cloud.{base}",
+                f"api.{base}",
+                f"www.{base}",
+            ]
+            probe = f"probe-{random.randint(1000, 9999)}.{base}"
+            for c in [base] + candidates + [probe]:
+                expanded.append({'name': c, 'expanded_from': name})
+        else:
+            expanded.append({'name': name, 'expanded_from': None})
+
+    seen = set()
+    out = []
+    for item in expanded:
+        k = item.get('name')
+        if not k or k in seen:
+            continue
+        seen.add(k)
+        out.append(item)
+    return out
 
 def resolve_dns(name, timeout=3):
     start=time.time()
@@ -13,7 +45,32 @@ def resolve_dns(name, timeout=3):
     except Exception as e:
         return {"target":name,"status":"FAIL","error":str(e)}
 
-def tcp_check(host, port, timeout=5, label=None, verify_tls=False):
+
+def _classify_connect_error(err):
+    try:
+        if isinstance(err, socket.timeout):
+            return ("timeout", "Timed out connecting. This often indicates an outbound firewall rule blocking the port, or upstream dropping TCP SYN packets.")
+        if isinstance(err, ConnectionRefusedError):
+            return ("refused", "Connection was refused. The host is reachable but nothing is listening on that port (or a firewall is actively rejecting connections).")
+        if isinstance(err, OSError):
+            if err.errno in (101, 113, 65):
+                return ("unreachable", "No route / network unreachable. Check default gateway, VLAN routing, or upstream ACLs.")
+            if err.errno in (110,):
+                return ("timeout", "Timed out connecting. This often indicates an outbound firewall rule blocking the port, or upstream dropping TCP SYN packets.")
+            if err.errno in (111,):
+                return ("refused", "Connection was refused. The host is reachable but nothing is listening on that port (or a firewall is actively rejecting connections).")
+        msg = str(err).lower()
+        if 'timed out' in msg:
+            return ("timeout", "Timed out connecting. This often indicates an outbound firewall rule blocking the port, or upstream dropping TCP SYN packets.")
+        if 'refused' in msg:
+            return ("refused", "Connection was refused. The host is reachable but nothing is listening on that port (or a firewall is actively rejecting connections).")
+        if 'no route' in msg or 'unreachable' in msg:
+            return ("unreachable", "No route / network unreachable. Check default gateway, VLAN routing, or upstream ACLs.")
+    except Exception:
+        pass
+    return ("error", "Connection failed. Check DNS resolution, routing, and outbound firewall rules.")
+
+def tcp_check(host, port, timeout=8, label=None, verify_tls=False):
     """Enhanced TCP check with optional TLS validation to match Dock behavior"""
     start=time.time()
     s=socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(timeout)
@@ -49,7 +106,8 @@ def tcp_check(host, port, timeout=5, label=None, verify_tls=False):
         if label: r["label"]=label
         return r
     except Exception as e:
-        r={"target":f"{host}:{port}","status":"FAIL","error":str(e)}
+        failure_mode, hint = _classify_connect_error(e)
+        r={"target":f"{host}:{port}","status":"FAIL","error":str(e),"failure_mode":failure_mode,"hint":hint}
         if label: r["label"]=label
         return r
     finally:
@@ -61,6 +119,8 @@ def ping(host, count=2):
         res=subprocess.run(["ping","-n","-c",str(count),host], capture_output=True, text=True, timeout=8)
         ok=(res.returncode==0); tail="\n".join(res.stdout.splitlines()[-2:])
         return {"target":host,"status":"PASS" if ok else "FAIL","output":tail}
+    except subprocess.TimeoutExpired as e:
+        return {"target":host,"status":"FAIL","error":str(e),"failure_mode":"timeout","hint":"Ping timed out. ICMP is commonly blocked on enterprise networks and many cloud IPs; validate reachability using TCP/HTTPS to the required ports instead."}
     except Exception as e:
         return {"target":host,"status":"FAIL","error":str(e)}
 
@@ -72,43 +132,93 @@ def ntp_check(server="time.skydio.com", timeout=3):
     except Exception as e:
         return {"target":server,"status":"FAIL","error":str(e)}
 
-def _try_ookla():
-    try:
-        # Use multiple threads and larger test duration for more accurate Pi results
-        res = subprocess.run(["speedtest","--accept-license","--accept-gdpr","-f","json","--progress=no"], capture_output=True, text=True, timeout=120)
-        if res.returncode != 0: return None
-        data=json.loads(res.stdout)
-        dl = round(data["download"]["bandwidth"]*8/1_000_000,1)
-        ul = round(data["upload"]["bandwidth"]*8/1_000_000,1)
-        return {"source":"ookla","download_mbps":dl,"upload_mbps":ul,"server":data.get("server",{}).get("name","Unknown")}
-    except Exception:
-        return None
+def _try_ookla(attempts=2):
+    best = None
+    for i in range(max(1, int(attempts))):
+        try:
+            res = subprocess.run(
+                ["speedtest", "--accept-license", "--accept-gdpr", "-f", "json", "--progress=no"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if res.returncode != 0:
+                continue
+            data = json.loads(res.stdout)
+            dl = round(data["download"]["bandwidth"] * 8 / 1_000_000, 1)
+            ul = round(data["upload"]["bandwidth"] * 8 / 1_000_000, 1)
+            cand = {
+                "source": "ookla",
+                "download_mbps": dl,
+                "upload_mbps": ul,
+                "server": data.get("server", {}).get("name", "Unknown"),
+            }
+            if best is None or (dl + ul) > (best.get("download_mbps", 0) + best.get("upload_mbps", 0)):
+                best = cand
+            if i < attempts - 1:
+                time.sleep(1)
+        except Exception:
+            continue
+    return best
 
-def _cloudflare_down(min_bytes=25_000_000, timeout=45):
-    """Enhanced download test with larger payload and optimized chunk size for Pi"""
-    url=f"https://speed.cloudflare.com/__down?bytes={min_bytes}"
-    start=time.time(); total=0
-    # Use larger chunk size for better Pi performance
-    chunk_size = 262144  # 256KB chunks
+def _cloudflare_down_bytes(min_bytes=25_000_000, timeout=60):
+    url = f"https://speed.cloudflare.com/__down?bytes={min_bytes}"
+    total = 0
+    chunk_size = 262144
     with requests.get(url, stream=True, timeout=timeout) as r:
         r.raise_for_status()
         for chunk in r.iter_content(chunk_size=chunk_size):
-            if not chunk: break
+            if not chunk:
+                break
             total += len(chunk)
-            if total >= min_bytes: break
-    elapsed=max(time.time()-start,1e-6)
-    return round((total*8)/1_000_000/elapsed,1)
+            if total >= min_bytes:
+                break
+    return total
 
-def _cloudflare_up(min_bytes=10_000_000, timeout=45):
-    """Enhanced upload test with larger payload for better Pi accuracy"""
-    url="https://speed.cloudflare.com/__up"
-    data=os.urandom(min_bytes)
-    start=time.time()
-    # Use streaming upload for better memory management on Pi
-    r=requests.post(url, data=data, timeout=timeout, stream=True)
+
+def _cloudflare_down(min_bytes=25_000_000, timeout=60):
+    start = time.time()
+    total = _cloudflare_down_bytes(min_bytes=min_bytes, timeout=timeout)
+    elapsed = max(time.time() - start, 1e-6)
+    return round((total * 8) / 1_000_000 / elapsed, 1)
+
+def _cloudflare_up(min_bytes=10_000_000, timeout=60):
+    url = "https://speed.cloudflare.com/__up"
+    data = os.urandom(min_bytes)
+    start = time.time()
+    r = requests.post(url, data=data, timeout=timeout)
     r.raise_for_status()
-    elapsed=max(time.time()-start,1e-6)
-    return round((len(data)*8)/1_000_000/elapsed,1)
+    elapsed = max(time.time() - start, 1e-6)
+    return round((len(data) * 8) / 1_000_000 / elapsed, 1)
+
+
+def _cloudflare_parallel(download_total_bytes=80_000_000, upload_total_bytes=20_000_000, download_conns=4, upload_conns=2, timeout=60):
+    download_total_bytes = max(int(download_total_bytes), 1)
+    upload_total_bytes = max(int(upload_total_bytes), 1)
+    download_conns = max(int(download_conns), 1)
+    upload_conns = max(int(upload_conns), 1)
+
+    down_bytes_per_conn = max(download_total_bytes // download_conns, 1_000_000)
+    up_bytes_per_conn = max(upload_total_bytes // upload_conns, 1_000_000)
+
+    start = time.time()
+    with ThreadPoolExecutor(max_workers=download_conns) as ex:
+        totals = list(ex.map(lambda _: _cloudflare_down_bytes(min_bytes=down_bytes_per_conn, timeout=timeout), range(download_conns)))
+    down_elapsed = max(time.time() - start, 1e-6)
+    down_total = sum(totals)
+    dl_mbps = round((down_total * 8) / 1_000_000 / down_elapsed, 1)
+
+    payload = os.urandom(up_bytes_per_conn)
+    up_url = "https://speed.cloudflare.com/__up"
+    up_start = time.time()
+    with ThreadPoolExecutor(max_workers=upload_conns) as ex:
+        res = list(ex.map(lambda _: requests.post(up_url, data=payload, timeout=timeout), range(upload_conns)))
+    for r in res:
+        r.raise_for_status()
+    up_elapsed = max(time.time() - up_start, 1e-6)
+    ul_mbps = round((len(payload) * upload_conns * 8) / 1_000_000 / up_elapsed, 1)
+
+    return dl_mbps, ul_mbps
 
 def quic_check(host, port=443, timeout=5, label=None):
     """Test QUIC protocol connectivity - simplified approach for better reliability"""
@@ -293,10 +403,12 @@ def https_full_check(url, timeout=5, label=None):
         return r
         
     except requests.exceptions.SSLError as e:
+        hint = "TLS validation failed. This can be caused by SSL inspection (corporate proxy), missing CA roots, or hostname/certificate mismatch."
         r = {
             "target": f"{host}:{port}",
             "status": "FAIL",
             "error": f"SSL/TLS Error: {str(e)}",
+            "hint": hint,
             "tls_verified": False
         }
     except Exception as e:
@@ -314,7 +426,7 @@ def https_full_check(url, timeout=5, label=None):
 def speedtest():
     """Enhanced speedtest with Skydio-specific thresholds from documentation"""
     # Try Ookla first (most accurate)
-    st = _try_ookla()
+    st = _try_ookla(attempts=2)
     
     # If Ookla fails, try Cloudflare with multiple attempts for consistency
     if st is None:
@@ -323,8 +435,11 @@ def speedtest():
         
         for attempt in range(attempts):
             try:
-                dl = _cloudflare_down()
-                ul = _cloudflare_up()
+                try:
+                    dl, ul = _cloudflare_parallel()
+                except Exception:
+                    dl = _cloudflare_down()
+                    ul = _cloudflare_up()
                 
                 # Keep the best results from multiple attempts
                 if dl > best_dl:
@@ -347,12 +462,12 @@ def speedtest():
     dl, ul = st["download_mbps"], st["upload_mbps"]
     
     # Adjusted for single Dock deployment
-    if dl >= 20 and ul >= 10:
-        status = "PASS"
-        note = "Meets minimum requirements for 1 Dock"
-    elif dl >= 80 and ul >= 20:
+    if dl >= 80 and ul >= 20:
         status = "PASS"
         note = "Meets recommended requirements for 1 Dock"
+    elif dl >= 20 and ul >= 10:
+        status = "PASS"
+        note = "Meets minimum requirements for 1 Dock"
     elif dl >= 10 and ul >= 5:
         status = "WARN"
         note = "Below minimum - may experience degraded performance"
@@ -367,21 +482,24 @@ def speedtest():
 class StepRunner:
     def __init__(self, targets):
         self.targets=targets
+        self._dns_targets = _expand_dns_targets(self.targets.get('dns', []))
         self.steps=self._count_steps()
 
     def _count_steps(self):
-        return (len(self.targets.get("dns",[]))+
+        return (len(self._dns_targets)+
                 len(self.targets.get("tcp",[]))+
                 len(self.targets.get("https",[]))+
                 len(self.targets.get("ping",[]))+
                 len(self.targets.get("quic",[]))+
-                len(self.targets.get("udp_ranges",[]))+
                 2) # + ntp + speedtest
 
     def run(self):
         # DNS
-        for n in self.targets.get("dns",[]):
-            yield ("dns", resolve_dns(n))
+        for n in self._dns_targets:
+            r = resolve_dns(n.get('name'))
+            if n.get('expanded_from'):
+                r['expanded_from'] = n.get('expanded_from')
+            yield ("dns", r)
         # TCP with optional TLS validation
         for t in self.targets.get("tcp",[]):
             verify_tls = t.get("verify_tls", False)
@@ -392,15 +510,6 @@ class StepRunner:
         # QUIC
         for q in self.targets.get("quic",[]):
             yield ("quic", quic_check(q.get("host"), q.get("port", 443), label=q.get("label")))
-        # UDP Port Ranges (WebRTC)
-        for u in self.targets.get("udp_ranges",[]):
-            yield ("udp_range", udp_port_range_check(
-                u.get("host"), 
-                u.get("port_start"), 
-                u.get("port_end"),
-                sample_size=u.get("sample_size", 5),
-                label=u.get("label")
-            ))
         # PING
         for h in self.targets.get("ping",[]):
             yield ("ping", ping(h))

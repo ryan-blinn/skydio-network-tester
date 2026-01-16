@@ -6,8 +6,20 @@ class NetworkTester {
     }
 
     init() {
+        this.setupImageFallbacks();
         this.bindEvents();
         this.loadDeviceInfo();
+    }
+
+    setupImageFallbacks() {
+        document.querySelectorAll('img[data-fallback-src]').forEach(img => {
+            img.addEventListener('error', () => {
+                const fallback = img.getAttribute('data-fallback-src');
+                if (!fallback) return;
+                if (img.src === fallback) return;
+                img.src = fallback;
+            });
+        });
     }
 
     bindEvents() {
@@ -38,10 +50,18 @@ class NetworkTester {
         try {
             const response = await fetch('/api/device-info');
             const data = await response.json();
+            const deviceIdEl = document.getElementById('device-id');
+            if (deviceIdEl) deviceIdEl.textContent = data.device_id || 'Unknown';
+            const hostnameEl = document.getElementById('device-hostname');
+            if (hostnameEl) hostnameEl.textContent = data.hostname || 'Unknown';
             document.getElementById('private-ip').textContent = data.private_ip || 'Unknown';
             document.getElementById('public-ip').textContent = data.public_ip || 'Unknown';
         } catch (error) {
             console.error('Failed to load device info:', error);
+            const deviceIdEl = document.getElementById('device-id');
+            if (deviceIdEl) deviceIdEl.textContent = 'Unknown';
+            const hostnameEl = document.getElementById('device-hostname');
+            if (hostnameEl) hostnameEl.textContent = 'Unknown';
             document.getElementById('private-ip').textContent = 'Unknown';
             document.getElementById('public-ip').textContent = 'Unknown';
         }
@@ -123,6 +143,9 @@ class NetworkTester {
         if (results.quic && results.quic.length > 0) {
             this.updateTestCard('quic', results.quic);
         }
+        if (results.https && results.https.length > 0) {
+            this.updateTestCard('https', results.https);
+        }
         if (results.ping && results.ping.length > 0) {
             this.updateTestCard('ping', results.ping);
         }
@@ -193,7 +216,7 @@ class NetworkTester {
             const statusClass = result.status.toLowerCase();
 
             html += `
-                <div class="detail-item">
+                <div class="detail-item ${statusClass}">
                     <div class="detail-header">
                         <span class="detail-status ${statusClass}">${statusIcon}</span>
                         <span class="detail-label">${label}</span>
@@ -212,6 +235,16 @@ class NetworkTester {
                 if (result.protocol) {
                     html += `<div class="detail-value">Protocol: ${result.protocol}</div>`;
                 }
+            } else if (testType === 'https') {
+                if (result.latency_ms) {
+                    html += `<div class="detail-value">Latency: ${result.latency_ms}ms</div>`;
+                }
+                if (result.http_status !== undefined) {
+                    html += `<div class="detail-value">HTTP Status: ${result.http_status}</div>`;
+                }
+                if (result.tls_verified !== undefined) {
+                    html += `<div class="detail-value">TLS Verified: ${result.tls_verified ? 'Yes' : 'No'}</div>`;
+                }
             } else if (testType === 'ping' && result.output) {
                 html += `<div class="detail-value">${result.output}</div>`;
             } else if (testType === 'ntp' && result.offset_ms !== undefined) {
@@ -227,6 +260,14 @@ class NetworkTester {
 
             if (result.error) {
                 html += `<div class="detail-value error">Error: ${result.error}</div>`;
+            }
+
+            if (result.failure_mode) {
+                html += `<div class="detail-value">Failure Mode: ${result.failure_mode}</div>`;
+            }
+
+            if (result.hint) {
+                html += `<div class="detail-value">Hint: ${result.hint}</div>`;
             }
 
             html += `</div>`;
@@ -252,6 +293,7 @@ class NetworkTester {
         const titles = {
             'dns': 'DNS Resolution',
             'tcp': 'TCP Connectivity',
+            'https': 'HTTPS Validation',
             'quic': 'QUIC Protocol',
             'ping': 'Ping Tests',
             'ntp': 'Time Sync',
@@ -266,6 +308,8 @@ class NetworkTester {
                 return result.target || `DNS Test ${index + 1}`;
             case 'tcp':
                 return result.label || result.target || `TCP Test ${index + 1}`;
+            case 'https':
+                return result.label || result.target || `HTTPS Test ${index + 1}`;
             case 'quic':
                 return result.label || result.target || `QUIC Test ${index + 1}`;
             case 'ping':
@@ -361,22 +405,20 @@ class NetworkTester {
     }
 
     async exportResults(format) {
-        if (!this.currentJobId) {
-            alert('No test results to export');
-            return;
-        }
-
         const siteLabel = document.getElementById('site-label').value;
-        const url = `/api/export/${format}/${this.currentJobId}${siteLabel ? `?site_label=${encodeURIComponent(siteLabel)}` : ''}`;
+        const url = `/api/export/${format}${siteLabel ? `?site_label=${encodeURIComponent(siteLabel)}` : ''}`;
 
         try {
             const response = await fetch(url, { method: 'POST' });
             const data = await response.json();
             
-            if (data.filename) {
-                // Download the file
-                window.location.href = `/download/${data.filename}`;
+            const filename = data.filename || data.file;
+            if (!response.ok || !filename) {
+                throw new Error(data.error || 'Export failed');
             }
+
+            // Download the file
+            window.location.href = `/download/${filename}`;
         } catch (error) {
             console.error('Export failed:', error);
             alert('Export failed. Please try again.');

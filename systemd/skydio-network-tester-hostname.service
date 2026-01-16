@@ -1,0 +1,10 @@
+[Unit]
+Description=Skydio Network Tester Hostname
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/skydio-network-tester-set-hostname
+
+[Install]
+WantedBy=multi-user.target

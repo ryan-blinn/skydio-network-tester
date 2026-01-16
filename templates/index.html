@@ -6,7 +6,7 @@
     <title>Skydio Network Readiness Tester</title>
     <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/favicon.svg') }}">
     <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=2.1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
@@ -16,12 +16,16 @@
         <div class="header">
             <div class="header-content">
                 <div class="header-left">
-                    <img src="{{ url_for('static', filename='images/skydio-logo-white.svg') }}" alt="Skydio" class="skydio-logo">
+                    <div class="brand-lockup">
+                        <img src="{{ url_for('static', filename='images/skydio-mark.png') }}" alt="Skydio" class="skydio-mark-logo">
+                        <img src="{{ url_for('static', filename='images/skydio-logo-white.svg') }}" alt="Skydio" class="skydio-logo">
+                    </div>
                     <h1><i class="fas fa-network-wired"></i> Network Readiness Tester</h1>
                 </div>
                 <div class="header-controls">
                     <div class="device-info">
-                        <span><i class="fab fa-raspberry-pi"></i> <span id="private-ip">Loading...</span></span>
+                        <span><span id="device-id">Loading...</span></span>
+                        <span><img class="device-info-icon" src="{{ url_for('static', filename='images/skydio-mark.png') }}" data-fallback-src="{{ url_for('static', filename='images/favicon.svg') }}" alt="Skydio"> <span id="private-ip">Loading...</span></span>
                         <span><i class="fas fa-globe"></i> <span id="public-ip">Loading...</span></span>
                     </div>
                     <div class="dropdown">
@@ -34,6 +38,12 @@
                             </a>
                             <a href="/settings" class="dropdown-item">
                                 <i class="fas fa-cog"></i> Settings
+                            </a>
+                            <a href="/security" class="dropdown-item">
+                                <i class="fas fa-shield-halved"></i> Safety &amp; Security
+                            </a>
+                            <a href="/self-test" class="dropdown-item">
+                                <i class="fas fa-stethoscope"></i> Self Test
                             </a>
                         </div>
                     </div>
@@ -175,6 +185,29 @@
                     </div>
                 </div>
 
+                <!-- HTTPS Validation -->
+                <div class="test-card" data-test="https">
+                    <div class="test-header">
+                        <div class="test-icon">
+                            <i class="fas fa-lock"></i>
+                        </div>
+                        <div class="test-info">
+                            <h3>HTTPS Validation</h3>
+                            <p>TLS + HTTP connectivity</p>
+                        </div>
+                        <div class="test-status" id="https-status">
+                            <div class="status-indicator pending"></div>
+                        </div>
+                        <button class="details-btn" data-test="https" style="display: none;">
+                            <i class="fas fa-chevron-down"></i>
+                            Details
+                        </button>
+                    </div>
+                    <div class="test-details" id="https-details">
+                        <div class="details-content"></div>
+                    </div>
+                </div>
+
                 <!-- Speed Tests -->
                 <div class="test-card" data-test="speedtest">
                     <div class="test-header">
@@ -257,6 +290,6 @@
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=2.1"></script>
 </body>
 </html>
